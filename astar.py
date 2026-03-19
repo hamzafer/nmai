@@ -507,10 +507,47 @@ def play_round(session: requests.Session, round_id: str, detail: dict, round_num
     print("\n=== Saving round data ===")
     save_round_data(round_number, round_id, detail, all_observations, transition_priors)
 
+    # ── Phase 2.5: Local simulator calibration + Monte Carlo ──
+    sim_predictions = {}
+    try:
+        from simulator import Simulator, SimParams, run_monte_carlo, calibrate_params
+        print("\n=== Phase 2.5: Local simulator ===")
+
+        # Pool all observations for calibration (use seed 0's initial state)
+        all_obs_flat = []
+        for obs_list in all_observations.values():
+            all_obs_flat.extend(obs_list)
+
+        if all_obs_flat:
+            print("  Calibrating parameters from observations...")
+            calibrated = calibrate_params(
+                initial_states[0]["grid"], initial_states[0]["settlements"],
+                all_obs_flat, width, height,
+                n_candidates=30, n_sims_per=10,
+            )
+        else:
+            calibrated = SimParams()
+
+        # Run Monte Carlo for each seed with calibrated params
+        for seed_idx in range(seeds_count):
+            grid = initial_states[seed_idx]["grid"]
+            setts = initial_states[seed_idx]["settlements"]
+            print(f"  Seed {seed_idx}: running 200 simulations...")
+            sim_pred = run_monte_carlo(grid, setts, params=calibrated,
+                                       n_sims=200, base_seed=seed_idx * 10000)
+            sim_predictions[seed_idx] = sim_pred
+            print(f"  Seed {seed_idx}: done")
+    except ImportError:
+        print("\n  Simulator not available, skipping local sim")
+    except Exception as e:
+        print(f"\n  Simulator error: {e}, continuing without sim")
+
     # ── Phase 3: Build and submit predictions ──
     print("\n=== Phase 3: Building and submitting predictions ===")
     for seed_idx in range(seeds_count):
         grid = seed_plans[seed_idx][0]
+
+        # Build Bayesian prediction from observations
         pred = build_prediction_bayesian(
             width, height, grid,
             all_observations[seed_idx],
@@ -518,6 +555,28 @@ def play_round(session: requests.Session, round_id: str, detail: dict, round_num
             cumulative_priors=cumulative_priors,
             neighborhood_model=neighborhood_model,
         )
+
+        # Blend with simulator predictions if available
+        if seed_idx in sim_predictions:
+            sim_pred = sim_predictions[seed_idx]
+            # Weight: observations are more trustworthy for observed cells,
+            # simulator fills in unobserved cells
+            obs_counts, obs_total = count_observations(
+                all_observations[seed_idx], width, height
+            )
+            for y in range(height):
+                for x in range(width):
+                    if obs_total[y][x] == 0:
+                        # No observations — use 70% sim, 30% prior
+                        pred[y][x] = 0.7 * sim_pred[y][x] + 0.3 * pred[y][x]
+                    else:
+                        # Have observations — use 30% sim, 70% observation-based
+                        pred[y][x] = 0.3 * sim_pred[y][x] + 0.7 * pred[y][x]
+
+            # Re-floor and renormalize
+            pred = np.maximum(pred, 0.005)
+            pred = pred / pred.sum(axis=-1, keepdims=True)
+
         save_predictions(round_number, seed_idx, pred)
         submit_prediction(session, round_id, seed_idx, pred)
 
