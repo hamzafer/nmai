@@ -38,6 +38,7 @@ STATIC_CLASSES = {0, 4, 5}  # Empty/Ocean/Plains, Forest, Mountain
 DYNAMIC_RADIUS = 7  # cells around settlements considered dynamic
 
 DATA_DIR = Path(__file__).parent / "data"
+MODELS_DIR = Path(__file__).parent / "models"
 
 
 # ─── Data persistence ─────────────────────────────────────────────────────────
@@ -324,14 +325,48 @@ def count_observations(observations, width, height):
     return obs_counts, obs_total
 
 
+def load_cumulative_priors():
+    """Load cumulative models from past rounds if available."""
+    transition_file = MODELS_DIR / "transition_model.npy"
+    neighborhood_file = MODELS_DIR / "neighborhood_model.npy"
+
+    cumulative_transition = None
+    neighborhood_model = None
+
+    if transition_file.exists():
+        cumulative_transition = np.load(transition_file)
+        print(f"  Loaded cumulative transition model from {len(list(MODELS_DIR.glob('*.npy')))} model files")
+    if neighborhood_file.exists():
+        neighborhood_model = np.load(neighborhood_file)
+        print(f"  Loaded neighborhood model")
+
+    return cumulative_transition, neighborhood_model
+
+
+def count_settlement_neighbors(initial_grid, x, y, width, height):
+    """Count settlement/port neighbors (8-connected) for a cell."""
+    count = 0
+    for dy in [-1, 0, 1]:
+        for dx in [-1, 0, 1]:
+            if dy == 0 and dx == 0:
+                continue
+            ny, nx = y + dy, x + dx
+            if 0 <= ny < height and 0 <= nx < width:
+                ncls = TERRAIN_TO_CLASS.get(initial_grid[ny][nx], 0)
+                if ncls in (1, 2):  # Settlement or Port
+                    count += 1
+    return min(count, 8)
+
+
 def build_prediction_bayesian(width, height, initial_grid, observations,
-                               transition_priors, concentration=2.0):
+                               transition_priors, concentration=2.0,
+                               cumulative_priors=None, neighborhood_model=None):
     """
     Build H x W x 6 probability tensor using Bayesian estimation.
 
     - Static cells: high confidence on initial class
     - Dynamic cells with observations: Dirichlet-multinomial posterior
-    - Dynamic cells without observations: cross-seed transition priors
+    - Dynamic cells without observations: neighborhood-aware or cross-seed priors
     """
     obs_counts, obs_total = count_observations(observations, width, height)
     prediction = np.zeros((height, width, NUM_CLASSES), dtype=np.float64)
@@ -351,16 +386,28 @@ def build_prediction_bayesian(width, height, initial_grid, observations,
 
             elif n_obs > 0:
                 # Bayesian: Dirichlet posterior = prior + observations
-                alpha = transition_priors[initial_cls] * concentration
+                # Use best available prior
+                if cumulative_priors is not None:
+                    alpha = cumulative_priors[initial_cls] * concentration
+                else:
+                    alpha = transition_priors[initial_cls] * concentration
                 posterior = obs_counts[y][x] + alpha
                 prediction[y][x] = posterior / posterior.sum()
 
             else:
-                # Dynamic cell with no observations — use cross-seed prior
-                prediction[y][x] = transition_priors[initial_cls]
+                # Dynamic cell with no observations
+                # Use neighborhood model if available (best), else transition priors
+                if neighborhood_model is not None:
+                    n_neighbors = count_settlement_neighbors(
+                        initial_grid, x, y, width, height
+                    )
+                    prediction[y][x] = neighborhood_model[initial_cls][n_neighbors]
+                elif cumulative_priors is not None:
+                    prediction[y][x] = cumulative_priors[initial_cls]
+                else:
+                    prediction[y][x] = transition_priors[initial_cls]
 
     # Enforce minimum probability floor to avoid infinite KL divergence
-    # Adaptive: more observations → smaller floor (more confident)
     min_floor = 0.005
     prediction = np.maximum(prediction, min_floor)
     prediction = prediction / prediction.sum(axis=-1, keepdims=True)
@@ -383,6 +430,9 @@ def play_round(session: requests.Session, round_id: str, detail: dict, round_num
     queries_left = budget["queries_max"] - budget["queries_used"]
     print(f"Queries available: {queries_left}")
 
+    # ── Load cumulative priors from past rounds ──
+    cumulative_priors, neighborhood_model = load_cumulative_priors()
+
     # ── Phase 0: Analyze all seeds ──
     print("\n=== Phase 0: Analyzing initial states ===")
     seed_plans = []  # (grid, viewports, priority)
@@ -403,7 +453,9 @@ def play_round(session: requests.Session, round_id: str, detail: dict, round_num
         for seed_idx in range(seeds_count):
             grid = seed_plans[seed_idx][0]
             pred = build_prediction_bayesian(width, height, grid, [],
-                                              transition_priors)
+                                              transition_priors,
+                                              cumulative_priors=cumulative_priors,
+                                              neighborhood_model=neighborhood_model)
             submit_prediction(session, round_id, seed_idx, pred)
         return
 
@@ -463,6 +515,8 @@ def play_round(session: requests.Session, round_id: str, detail: dict, round_num
             width, height, grid,
             all_observations[seed_idx],
             transition_priors,
+            cumulative_priors=cumulative_priors,
+            neighborhood_model=neighborhood_model,
         )
         save_predictions(round_number, seed_idx, pred)
         submit_prediction(session, round_id, seed_idx, pred)
