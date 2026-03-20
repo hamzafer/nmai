@@ -132,17 +132,25 @@ def observe(session: requests.Session, round_id: str, seed_index: int,
 
 
 def submit_prediction(session: requests.Session, round_id: str, seed_index: int,
-                      prediction: np.ndarray):
-    """Submit H x W x 6 prediction tensor."""
-    resp = session.post(f"{BASE}/astar-island/submit", json={
-        "round_id": round_id,
-        "seed_index": seed_index,
-        "prediction": prediction.tolist(),
-    })
-    if resp.status_code == 200:
-        print(f"  Seed {seed_index}: SUBMITTED OK")
-    else:
-        print(f"  Seed {seed_index}: SUBMIT FAILED {resp.status_code} - {resp.text[:200]}")
+                      prediction: np.ndarray, max_retries: int = 3):
+    """Submit H x W x 6 prediction tensor with retry on rate limit."""
+    for attempt in range(max_retries):
+        resp = session.post(f"{BASE}/astar-island/submit", json={
+            "round_id": round_id,
+            "seed_index": seed_index,
+            "prediction": prediction.tolist(),
+        })
+        if resp.status_code == 200:
+            print(f"  Seed {seed_index}: SUBMITTED OK")
+            return resp
+        elif resp.status_code == 429:
+            wait = 2 ** attempt
+            print(f"  Seed {seed_index}: rate limited, retrying in {wait}s...")
+            time.sleep(wait)
+        else:
+            print(f"  Seed {seed_index}: SUBMIT FAILED {resp.status_code} - {resp.text[:200]}")
+            return resp
+    print(f"  Seed {seed_index}: FAILED after {max_retries} retries")
     return resp
 
 
