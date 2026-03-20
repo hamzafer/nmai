@@ -1,0 +1,346 @@
+{
+  "timestamp": "2026-03-20T08:31:06.746908+00:00",
+  "prompt": "Crie um pedido para o cliente Horizonte Lda (org. nº 904130338) com os produtos Serviço de rede (6247) a 15250 NOK e Desenvolvimento de sistemas (5919) a 13250 NOK. Converta o pedido em fatura e registe o pagamento total.",
+  "files": [],
+  "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+  "llm_calls": [
+    {
+      "role": "plan",
+      "prompt_length": 521,
+      "prompt": "Task prompt:\nCrie um pedido para o cliente Horizonte Lda (org. nº 904130338) com os produtos Serviço de rede (6247) a 15250 NOK e Desenvolvimento de sistemas (5919) a 13250 NOK. Converta o pedido em fatura e registe o pagamento total.\n\nBase URL: https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2\nAuthentication: Basic Auth with username \"0\" and the session token.\n\nAnalyze this task and provide the JSON array of API calls needed to complete it.\nRemember: be precise and minimal. Each unnecessary call or error hurts the score.",
+      "response_length": 2456,
+      "response": "I'll analyze this task step by step:\n\n1. Create a customer \"Horizonte Lda\" with org number 904130338\n2. Create two products: \"Serviço de rede\" (number 6247, 15250 NOK) and \"Desenvolvimento de sistemas\" (number 5919, 13250 NOK)\n3. Create an order with both products\n4. Convert order to invoice\n5. Register full payment\n\nTotal excl. VAT: 15250 + 13250 = 28500 NOK\nTotal incl. VAT (25%): 28500 * 1.25 = 35625 NOK\n\nI need a department and employee first (sandbox is empty).\n\n```json\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\"name\": \"General\", \"departmentNumber\": 1},\n    \"description\": \"Create department\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\"firstName\": \"Admin\", \"lastName\": \"User\", \"email\": \"admin@example.org\", \"userType\": \"STANDARD\", \"department\": {\"id\": \"{prev_id}\"}},\n    \"description\": \"Create employee\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/customer\",\n    \"body\": {\"name\": \"Horizonte Lda\", \"email\": \"info@horizonte.no\", \"isCustomer\": true, \"organizationNumber\": \"904130338\"},\n    \"description\": \"Create customer\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/product\",\n    \"body\": {\"name\": \"Serviço de rede\", \"number\": 6247, \"priceExcludingVatCurrency\": 15250},\n    \"description\": \"Create product Serviço de rede\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/product\",\n    \"body\": {\"name\": \"Desenvolvimento de sistemas\", \"number\": 5919, \"priceExcludingVatCurrency\": 13250},\n    \"description\": \"Create product Desenvolvimento de sistemas\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/order\",\n    \"body\": {\n      \"customer\": {\"id\": \"{result_2_id}\"},\n      \"deliveryDate\": \"2026-01-15\",\n      \"orderDate\": \"2026-01-15\",\n      \"orderLines\": [\n        {\"product\": {\"id\": \"{result_3_id}\"}, \"count\": 1, \"unitPriceExcludingVatCurrency\": 15250},\n        {\"product\": {\"id\": \"{result_4_id}\"}, \"count\": 1, \"unitPriceExcludingVatCurrency\": 13250}\n      ]\n    },\n    \"description\": \"Create order with both products\"\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15\",\n    \"body\": {},\n    \"description\": \"Convert order to invoice\",\n    \"depends_on\": 5\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=35625&paidAmountCurrency=35625\",\n    \"body\": {},\n    \"description\": \"Register full payment on invoice\",\n    \"depends_on\": 6\n  }\n]\n```"
+    },
+    {
+      "role": "fix_1",
+      "prompt_length": 8827,
+      "prompt": "Original task: Crie um pedido para o cliente Horizonte Lda (org. nº 904130338) com os produtos Serviço de rede (6247) a 15250 NOK e Desenvolvimento de sistemas (5919) a 13250 NOK. Converta o pedido em fatura e registe o pagamento total.\n\n\n--- Round 1 ---\nCalls made:\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\n      \"name\": \"General\",\n      \"departmentNumber\": 1\n    },\n    \"description\": \"Create department\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\n      \"firstName\": \"Admin\",\n      \"lastName\": \"User\",\n      \"email\": \"admin@example.org\",\n      \"userType\": \"STANDARD\",\n      \"department\": {\n        \"id\": \"{prev_id}\"\n      }\n    },\n    \"description\": \"Create employee\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/customer\",\n    \"body\": {\n      \"name\": \"Horizonte Lda\",\n      \"email\": \"info@horizonte.no\",\n      \"isCustomer\": true,\n      \"organizationNumber\": \"904130338\"\n    },\n    \"description\": \"Create customer\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/product\",\n    \"body\": {\n      \"name\": \"Servi\\u00e7o de rede\",\n      \"number\": 6247,\n      \"priceExcludingVatCurrency\": 15250\n    },\n    \"description\": \"Create product Servi\\u00e7o de rede\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/product\",\n    \"body\": {\n      \"name\": \"Desenvolvimento de sistemas\",\n      \"number\": 5919,\n      \"priceExcludingVatCurrency\": 13250\n    },\n    \"description\": \"Create product Desenvolvimento de sistemas\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/order\",\n    \"body\": {\n      \"customer\": {\n        \"id\": \"{result_2_id}\"\n      },\n      \"deliveryDate\": \"2026-01-15\",\n      \"orderDate\": \"2026-01-15\",\n      \"orderLines\": [\n        {\n          \"product\": {\n            \"id\": \"{result_3_id}\"\n          },\n          \"count\": 1,\n          \"unitPriceExcludingVatCurrency\": 15250\n        },\n        {\n          \"product\": {\n            \"id\": \"{result_4_id}\"\n          },\n          \"count\": 1,\n          \"unitPriceExcludingVatCurrency\": 13250\n        }\n      ]\n    },\n    \"description\": \"Create order with both products\"\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15\",\n    \"body\": {},\n    \"description\": \"Convert order to invoice\",\n    \"depends_on\": 5\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=35625&paidAmountCurrency=35625\",\n    \"body\": {},\n    \"description\": \"Register full payment on invoice\",\n    \"depends_on\": 6\n  }\n]\nResults:\n[\n  {\n    \"status\": 201,\n    \"id\": 900239,\n    \"data\": {\n      \"id\": 900239,\n      \"version\": 0,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/department/900239\",\n      \"name\": \"General\",\n      \"departmentNumber\": \"1\",\n      \"departmentManager\": null,\n      \"displayName\": \"1 General\",\n      \"isInactive\": false,\n      \"businessActivityTypeId\": 0\n    }\n  },\n  {\n    \"status\": 201,\n    \"id\": 18561902,\n    \"data\": {\n      \"id\": 18561902,\n      \"version\": 1,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/employee/18561902\",\n      \"firstName\": \"Admin\",\n      \"lastName\": \"User\",\n      \"displayName\": \"Admin User\",\n      \"employeeNumber\": \"\",\n      \"dateOfBirth\": null,\n      \"email\": \"admin@example.org\",\n      \"phoneNumberMobileCountry\": {\n        \"id\": 161,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/country/161\"\n      },\n      \"phoneNumberMobile\": \"\",\n      \"phoneNumberHome\": \"\",\n      \"phoneNumberWork\": \"\",\n      \"nationalIdentityNumber\": \"\",\n      \"dnumber\": \"\",\n      \"internationalId\": {\n        \"intAmeldingType\": null,\n        \"country\": null,\n        \"number\": \"\"\n      },\n      \"bankAccountNumber\": \"\",\n      \"iban\": \"\",\n      \"bic\": \"\",\n      \"creditorBankCountryId\": 0,\n      \"usesAbroadPayment\": false,\n      \"userType\": null,\n      \"allowInformationRegistration\": true,\n      \"isContact\": false,\n      \"isProxy\": false,\n      \"comments\": \"\",\n      \"address\": null,\n      \"department\": {\n        \"id\": 900239,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/department/900239\"\n      },\n      \"employments\": [],\n      \"holidayAllowanceEarned\": {\n        \"year\": 0,\n        \"amount\": 0,\n        \"basis\": 0,\n        \"amountExtraHolidayWeek\": 0\n      },\n      \"employeeCategory\": null,\n      \"isAuthProjectOverviewURL\": true,\n      \"pictureId\": 0,\n      \"companyId\": 107806159,\n      \"vismaConnect2FAactive\": false\n    }\n  },\n  {\n    \"status\": 201,\n    \"id\": 108239602,\n    \"data\": {\n      \"id\": 108239602,\n      \"version\": 1,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/customer/108239602\",\n      \"name\": \"Horizonte Lda\",\n      \"organizationNumber\": \"904130338\",\n      \"globalLocationNumber\": 0,\n      \"supplierNumber\": 0,\n      \"customerNumber\": 10002,\n      \"isSupplier\": false,\n      \"isCustomer\": true,\n      \"isInactive\": false,\n      \"accountManager\": null,\n      \"department\": null,\n      \"email\": \"info@horizonte.no\",\n      \"invoiceEmail\": \"\",\n      \"overdueNoticeEmail\": \"\",\n      \"phoneNumber\": \"\",\n      \"phoneNumberMo",
+      "response_length": 1606,
+      "response": "Looking at the results, the products with numbers 6247 and 5919 already exist in the system. I need to find their IDs first, then create the order, invoice it, and register payment.\n\n```json\n[\n  {\n    \"method\": \"GET\",\n    \"path\": \"/product?number=6247\",\n    \"body\": null,\n    \"description\": \"Find existing product Serviço de rede by number 6247\"\n  },\n  {\n    \"method\": \"GET\",\n    \"path\": \"/product?number=5919\",\n    \"body\": null,\n    \"description\": \"Find existing product Desenvolvimento de sistemas by number 5919\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/order\",\n    \"body\": {\n      \"customer\": {\n        \"id\": \"108239602\"\n      },\n      \"deliveryDate\": \"2026-01-15\",\n      \"orderDate\": \"2026-01-15\",\n      \"orderLines\": [\n        {\n          \"product\": {\n            \"id\": \"{result_0_id}\"\n          },\n          \"count\": 1,\n          \"unitPriceExcludingVatCurrency\": 15250\n        },\n        {\n          \"product\": {\n            \"id\": \"{result_1_id}\"\n          },\n          \"count\": 1,\n          \"unitPriceExcludingVatCurrency\": 13250\n        }\n      ]\n    },\n    \"description\": \"Create order with both products\"\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15\",\n    \"body\": {},\n    \"description\": \"Convert order to invoice\",\n    \"depends_on\": 2\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=35625&paidAmountCurrency=35625\",\n    \"body\": {},\n    \"description\": \"Register full payment on invoice (28500 * 1.25 = 35625)\",\n    \"depends_on\": 3\n  }\n]\n```"
+    },
+    {
+      "role": "fix_2",
+      "prompt_length": 17797,
+      "prompt": "Original task: Crie um pedido para o cliente Horizonte Lda (org. nº 904130338) com os produtos Serviço de rede (6247) a 15250 NOK e Desenvolvimento de sistemas (5919) a 13250 NOK. Converta o pedido em fatura e registe o pagamento total.\n\n\n--- Round 1 ---\nCalls made:\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\n      \"name\": \"General\",\n      \"departmentNumber\": 1\n    },\n    \"description\": \"Create department\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\n      \"firstName\": \"Admin\",\n      \"lastName\": \"User\",\n      \"email\": \"admin@example.org\",\n      \"userType\": \"STANDARD\",\n      \"department\": {\n        \"id\": \"{prev_id}\"\n      }\n    },\n    \"description\": \"Create employee\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/customer\",\n    \"body\": {\n      \"name\": \"Horizonte Lda\",\n      \"email\": \"info@horizonte.no\",\n      \"isCustomer\": true,\n      \"organizationNumber\": \"904130338\"\n    },\n    \"description\": \"Create customer\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/product\",\n    \"body\": {\n      \"name\": \"Servi\\u00e7o de rede\",\n      \"number\": 6247,\n      \"priceExcludingVatCurrency\": 15250\n    },\n    \"description\": \"Create product Servi\\u00e7o de rede\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/product\",\n    \"body\": {\n      \"name\": \"Desenvolvimento de sistemas\",\n      \"number\": 5919,\n      \"priceExcludingVatCurrency\": 13250\n    },\n    \"description\": \"Create product Desenvolvimento de sistemas\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/order\",\n    \"body\": {\n      \"customer\": {\n        \"id\": \"{result_2_id}\"\n      },\n      \"deliveryDate\": \"2026-01-15\",\n      \"orderDate\": \"2026-01-15\",\n      \"orderLines\": [\n        {\n          \"product\": {\n            \"id\": \"{result_3_id}\"\n          },\n          \"count\": 1,\n          \"unitPriceExcludingVatCurrency\": 15250\n        },\n        {\n          \"product\": {\n            \"id\": \"{result_4_id}\"\n          },\n          \"count\": 1,\n          \"unitPriceExcludingVatCurrency\": 13250\n        }\n      ]\n    },\n    \"description\": \"Create order with both products\"\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15\",\n    \"body\": {},\n    \"description\": \"Convert order to invoice\",\n    \"depends_on\": 5\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=35625&paidAmountCurrency=35625\",\n    \"body\": {},\n    \"description\": \"Register full payment on invoice\",\n    \"depends_on\": 6\n  }\n]\nResults:\n[\n  {\n    \"status\": 201,\n    \"id\": 900239,\n    \"data\": {\n      \"id\": 900239,\n      \"version\": 0,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/department/900239\",\n      \"name\": \"General\",\n      \"departmentNumber\": \"1\",\n      \"departmentManager\": null,\n      \"displayName\": \"1 General\",\n      \"isInactive\": false,\n      \"businessActivityTypeId\": 0\n    }\n  },\n  {\n    \"status\": 201,\n    \"id\": 18561902,\n    \"data\": {\n      \"id\": 18561902,\n      \"version\": 1,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/employee/18561902\",\n      \"firstName\": \"Admin\",\n      \"lastName\": \"User\",\n      \"displayName\": \"Admin User\",\n      \"employeeNumber\": \"\",\n      \"dateOfBirth\": null,\n      \"email\": \"admin@example.org\",\n      \"phoneNumberMobileCountry\": {\n        \"id\": 161,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/country/161\"\n      },\n      \"phoneNumberMobile\": \"\",\n      \"phoneNumberHome\": \"\",\n      \"phoneNumberWork\": \"\",\n      \"nationalIdentityNumber\": \"\",\n      \"dnumber\": \"\",\n      \"internationalId\": {\n        \"intAmeldingType\": null,\n        \"country\": null,\n        \"number\": \"\"\n      },\n      \"bankAccountNumber\": \"\",\n      \"iban\": \"\",\n      \"bic\": \"\",\n      \"creditorBankCountryId\": 0,\n      \"usesAbroadPayment\": false,\n      \"userType\": null,\n      \"allowInformationRegistration\": true,\n      \"isContact\": false,\n      \"isProxy\": false,\n      \"comments\": \"\",\n      \"address\": null,\n      \"department\": {\n        \"id\": 900239,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/department/900239\"\n      },\n      \"employments\": [],\n      \"holidayAllowanceEarned\": {\n        \"year\": 0,\n        \"amount\": 0,\n        \"basis\": 0,\n        \"amountExtraHolidayWeek\": 0\n      },\n      \"employeeCategory\": null,\n      \"isAuthProjectOverviewURL\": true,\n      \"pictureId\": 0,\n      \"companyId\": 107806159,\n      \"vismaConnect2FAactive\": false\n    }\n  },\n  {\n    \"status\": 201,\n    \"id\": 108239602,\n    \"data\": {\n      \"id\": 108239602,\n      \"version\": 1,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/customer/108239602\",\n      \"name\": \"Horizonte Lda\",\n      \"organizationNumber\": \"904130338\",\n      \"globalLocationNumber\": 0,\n      \"supplierNumber\": 0,\n      \"customerNumber\": 10002,\n      \"isSupplier\": false,\n      \"isCustomer\": true,\n      \"isInactive\": false,\n      \"accountManager\": null,\n      \"department\": null,\n      \"email\": \"info@horizonte.no\",\n      \"invoiceEmail\": \"\",\n      \"overdueNoticeEmail\": \"\",\n      \"phoneNumber\": \"\",\n      \"phoneNumberMo",
+      "response_length": 497,
+      "response": "Looking at the results, everything succeeded except the payment registration (call 4 returned 404). The invoice was created with ID 2147521657 and total amount 35625.0. I need to register the payment using an alternative method.\n\n```json\n[\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/invoice/2147521657/:createPayment?paymentDate=2026-01-20&paymentTypeId=2&paidAmount=35625&paidAmountCurrency=35625\",\n    \"body\": {},\n    \"description\": \"Register full payment on invoice using paymentTypeId=2\"\n  }\n]\n```"
+    }
+  ],
+  "plan": [
+    {
+      "method": "POST",
+      "path": "/department",
+      "body": {
+        "name": "General",
+        "departmentNumber": 1
+      },
+      "description": "Create department"
+    },
+    {
+      "method": "POST",
+      "path": "/employee",
+      "body": {
+        "firstName": "Admin",
+        "lastName": "User",
+        "email": "admin@example.org",
+        "userType": "STANDARD",
+        "department": {
+          "id": "{prev_id}"
+        }
+      },
+      "description": "Create employee",
+      "depends_on": 0
+    },
+    {
+      "method": "POST",
+      "path": "/customer",
+      "body": {
+        "name": "Horizonte Lda",
+        "email": "info@horizonte.no",
+        "isCustomer": true,
+        "organizationNumber": "904130338"
+      },
+      "description": "Create customer"
+    },
+    {
+      "method": "POST",
+      "path": "/product",
+      "body": {
+        "name": "Serviço de rede",
+        "number": 6247,
+        "priceExcludingVatCurrency": 15250
+      },
+      "description": "Create product Serviço de rede"
+    },
+    {
+      "method": "POST",
+      "path": "/product",
+      "body": {
+        "name": "Desenvolvimento de sistemas",
+        "number": 5919,
+        "priceExcludingVatCurrency": 13250
+      },
+      "description": "Create product Desenvolvimento de sistemas"
+    },
+    {
+      "method": "POST",
+      "path": "/order",
+      "body": {
+        "customer": {
+          "id": "{result_2_id}"
+        },
+        "deliveryDate": "2026-01-15",
+        "orderDate": "2026-01-15",
+        "orderLines": [
+          {
+            "product": {
+              "id": "{result_3_id}"
+            },
+            "count": 1,
+            "unitPriceExcludingVatCurrency": 15250
+          },
+          {
+            "product": {
+              "id": "{result_4_id}"
+            },
+            "count": 1,
+            "unitPriceExcludingVatCurrency": 13250
+          }
+        ]
+      },
+      "description": "Create order with both products"
+    },
+    {
+      "method": "PUT",
+      "path": "/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15",
+      "body": {},
+      "description": "Convert order to invoice",
+      "depends_on": 5
+    },
+    {
+      "method": "PUT",
+      "path": "/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=35625&paidAmountCurrency=35625",
+      "body": {},
+      "description": "Register full payment on invoice",
+      "depends_on": 6
+    }
+  ],
+  "api_calls": [
+    {
+      "status": 201,
+      "id": 900239,
+      "data": {
+        "id": 900239,
+        "version": 0,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/department/900239",
+        "name": "General",
+        "departmentNumber": "1",
+        "departmentManager": null,
+        "displayName": "1 General",
+        "isInactive": false,
+        "businessActivityTypeId": 0
+      }
+    },
+    {
+      "status": 201,
+      "id": 18561902,
+      "data": {
+        "id": 18561902,
+        "version": 1,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/employee/18561902",
+        "firstName": "Admin",
+        "lastName": "User",
+        "displayName": "Admin User",
+        "employeeNumber": "",
+        "dateOfBirth": null,
+        "email": "admin@example.org",
+        "phoneNumberMobileCountry": {
+          "id": 161,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/country/161"
+        },
+        "phoneNumberMobile": "",
+        "phoneNumberHome": "",
+        "phoneNumberWork": "",
+        "nationalIdentityNumber": "",
+        "dnumber": "",
+        "internationalId": {
+          "intAmeldingType": null,
+          "country": null,
+          "number": ""
+        },
+        "bankAccountNumber": "",
+        "iban": "",
+        "bic": "",
+        "creditorBankCountryId": 0,
+        "usesAbroadPayment": false,
+        "userType": null,
+        "allowInformationRegistration": true,
+        "isContact": false,
+        "isProxy": false,
+        "comments": "",
+        "address": null,
+        "department": {
+          "id": 900239,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/department/900239"
+        },
+        "employments": [],
+        "holidayAllowanceEarned": {
+          "year": 0,
+          "amount": 0,
+          "basis": 0,
+          "amountExtraHolidayWeek": 0
+        },
+        "employeeCategory": null,
+        "isAuthProjectOverviewURL": true,
+        "pictureId": 0,
+        "companyId": 107806159,
+        "vismaConnect2FAactive": false
+      }
+    },
+    {
+      "status": 201,
+      "id": 108239602,
+      "data": {
+        "id": 108239602,
+        "version": 1,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/customer/108239602",
+        "name": "Horizonte Lda",
+        "organizationNumber": "904130338",
+        "globalLocationNumber": 0,
+        "supplierNumber": 0,
+        "customerNumber": 10002,
+        "isSupplier": false,
+        "isCustomer": true,
+        "isInactive": false,
+        "accountManager": null,
+        "department": null,
+        "email": "info@horizonte.no",
+        "invoiceEmail": "",
+        "overdueNoticeEmail": "",
+        "phoneNumber": "",
+        "phoneNumberMobile": "",
+        "description": "",
+        "language": "NO",
+        "displayName": "Horizonte Lda (10002)",
+        "isPrivateIndividual": false,
+        "singleCustomerInvoice": false,
+        "invoiceSendMethod": "EMAIL",
+        "emailAttachmentType": "ATTACHMENT",
+        "postalAddress": {
+          "id": 405330709,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/address/405330709"
+        },
+        "physicalAddress": {
+          "id": 405330708,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/address/405330708"
+        },
+        "deliveryAddress": null,
+        "category1": null,
+        "category2": null,
+        "category3": null,
+        "invoicesDueIn": 14,
+        "invoicesDueInType": "DAYS",
+        "currency": {
+          "id": 1,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/currency/1"
+        },
+        "bankAccountPresentation": [],
+        "ledgerAccount": {
+          "id": 348690129,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/ledger/account/348690129"
+        },
+        "isFactoring": false,
+        "invoiceSendSMSNotification": false,
+        "invoiceSMSNotificationNumber": "",
+        "isAutomaticSoftReminderEnabled": false,
+        "isAutomaticReminderEnabled": false,
+        "isAutomaticNoticeOfDebtCollectionEnabled": false,
+        "discountPercentage": 0,
+        "website": ""
+      }
+    },
+    {
+      "status": 422,
+      "error": "{\"status\":422,\"code\":18000,\"message\":\"Validering feilet.\",\"link\":\"https://tripletex.no/v2-docs/\",\"developerMessage\":\"VALIDATION_ERROR\",\"validationMessages\":[{\"field\":\"number\",\"message\":\"Produktnummeret 6247 er i bruk.\",\"path\":null,\"rootId\":null}],\"requestId\":\"a6d85f4b-d630-486e-b5bb-81a8f6a6f9d6\"}"
+    },
+    {
+      "status": 422,
+      "error": "{\"status\":422,\"code\":18000,\"message\":\"Validering feilet.\",\"link\":\"https://tripletex.no/v2-docs/\",\"developerMessage\":\"VALIDATION_ERROR\",\"validationMessages\":[{\"field\":\"number\",\"message\":\"Produktnummeret 5919 er i bruk.\",\"path\":null,\"rootId\":null}],\"requestId\":\"45c2a301-8ba6-4b14-86c4-908cabdda470\"}"
+    },
+    {
+      "error": "Unresolved references: ['{result_3_id}', '{result_4_id}']",
+      "id": null
+    },
+    {
+      "error": "Unresolved references: ['{prev_id}']",
+      "id": null
+    },
+    {
+      "error": "Unresolved references: ['{prev_id}']",
+      "id": null
+    }
+  ],
+  "fix_plan": [
+    {
+      "method": "GET",
+      "path": "/product?number=6247",
+      "body": null,
+      "description": "Find existing product Serviço de rede by number 6247"
+    },
+    {
+      "method": "GET",
+      "path": "/product?number=5919",
+      "body": null,
+      "description": "Find existing product Desenvolvimento de sistemas by number 5919"
+    },
+    {
+      "method": "POST",
+      "path": "/order",
+      "body": {
+        "customer": {
+          "id": "108239602"
+        },
+        "deliveryDate": "2026-01-15",
+        "orderDate": "2026-01-15",
+        "orderLines": [
+          {
+            "product": {
+              "id": "{result_0_id}"
+            },
+            "count": 1,
+            "unitPriceExcludingVatCurrency": 15250
+          },
+          {
+            "product": {
+              "id": "{result_1_id}"
+            },
+            "count": 1,
+            "unitPriceExcludingVatCurrency": 13250
+          }
+        ]
+      },
+      "description": "Create order with both products"
+    },
+    {
+      "method": "PUT",
+      "path": "/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15",
+      "body": {},
+      "description": "Convert order to invoice",
+      "depends_on": 2
+    },
+    {
+      "method": "PUT",
+      "path": "/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=35625&paidAmountCurrency=35625",
+      "body": {},
+      "description": "Register full payment on invoice (28500 * 1.25 = 35625)",
+      "depends_on": 3
+    }
+  ],
+  "fix_api_calls": [
+    {
+      "status": 404,
+      "error": "{\"status\":404,\"code\":6000,\"message\":\"Object not found\",\"link\":\"https://tripletex.no/v2-docs/\",\"developerMessage\":null,\"validationMessages\":null,\"requestId\":\"f6cfa483-fbf1-4e12-98b2-b33e5db2a1b4\"}"
+    }
+  ],
+  "duration_s": 53.53
+}
