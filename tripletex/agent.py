@@ -91,20 +91,22 @@ PUT /invoice/{id}/:send — Send an existing invoice
 POST /invoice — Create an invoice directly
   Required: invoiceDate (YYYY-MM-DD), invoiceDueDate (YYYY-MM-DD), orders (array of {"id": N})
 
-POST /invoice/{id}/payment — Register payment on an invoice (NOT PUT, use POST)
-  Alternative paths to try (in order of preference):
-  1. PUT /invoice/{id}/:createPayment?paymentDate=...&paymentTypeId=...&paidAmount=...
-  2. POST /invoice/{id}/payment with JSON body {"paymentDate": "...", "paymentTypeId": N, "paidAmount": N}
-  3. POST /payment with JSON body {"invoice": {"id": N}, "paymentDate": "...", "paymentTypeId": N, "amount": N}
+POST /payment — Register payment on an invoice
+  Required: date (YYYY-MM-DD), amount, amountCurrency
+  Required reference: paymentType ({"id": N}), kid (string, can be empty "")
+  The invoice ID may need to be passed via the endpoint or body.
 
-  Use approach 1 first. If it returns 404, the fix round should try approach 2 or 3.
+  TRY THESE PATHS IN ORDER:
+  1. PUT /invoice/{id}/:createPayment?paymentDate=YYYY-MM-DD&paymentTypeId=N&paidAmount=AMOUNT&paidAmountCurrency=AMOUNT
+  2. POST /payment with body: {"date": "YYYY-MM-DD", "amount": AMOUNT, "amountCurrency": AMOUNT, "paymentType": {"id": N}, "invoice": {"id": INVOICE_ID}}
+  3. PUT /invoice/{id}/:pay?paymentDate=YYYY-MM-DD&paymentTypeId=N&paidAmount=AMOUNT
 
-  FOR paymentTypeId: Try paymentTypeId=1 first. If that fails with 500, try 2, 3, etc.
-  DO NOT use paymentTypeId=0.
+  FOR paymentTypeId / paymentType: Try id=1 or id=2 first. If 500, try other IDs.
+  DO NOT use id=0.
 
-  IMPORTANT: paidAmount must be the TOTAL amount INCLUDING VAT (not the ex-VAT amount from the prompt).
-  If task says "9400 NOK excl VAT" and product has 25% MVA, the invoice total = 11750 NOK. Pay 11750.
-  Use the "amount" field from the invoice creation response, not the amount from the task prompt.
+  IMPORTANT: Amount must be the TOTAL INCLUDING VAT (not the ex-VAT amount from the prompt).
+  If task says "9400 NOK excl VAT" and product has 25% MVA, invoice total = 11750 NOK. Pay 11750.
+  Use the "amount" field from the invoice creation response.
 
 GET/POST/PUT/DELETE /travelExpense — Travel expense reports
   Required for POST: employee ({"id": N}), title, startDate, endDate
@@ -171,7 +173,7 @@ Pattern 5 — Create invoice + register payment:
   {"method": "POST", "path": "/product", "body": {"name": "Service", "priceExcludingVatCurrency": 10000}, "description": "Create product"},
   {"method": "POST", "path": "/order", "body": {"customer": {"id": "{result_2_id}"}, "deliveryDate": "2026-01-15", "orderDate": "2026-01-15", "orderLines": [{"product": {"id": "{result_3_id}"}, "count": 1}]}, "description": "Create order"},
   {"method": "PUT", "path": "/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15", "body": {}, "description": "Convert order to invoice", "depends_on": 4},
-  {"method": "PUT", "path": "/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=12500&paidAmountCurrency=12500", "body": {}, "description": "Register full payment (amount = total incl VAT)", "depends_on": 5}
+  {"method": "PUT", "path": "/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=12500&paidAmountCurrency=12500", "body": {}, "description": "Try payment via PUT createPayment (if 404, fix round will try POST /payment)", "depends_on": 5}
 ]
 ```
 NOTE: No bank account setup needed — invoice creation works through the competition proxy.
@@ -520,9 +522,11 @@ Common issues:
 - "Det finnes allerede en bruker med denne e-postadressen" = email already exists. GET /employee?email=X to find their ID.
 - If GET returns a list, the ID is in values[0].id — use that integer directly.
 - If PUT /order/ID/:invoice returns 404, try PUT /order/:invoice/ID or POST /invoice with orders: [{{"id": ORDER_ID}}]
-- If PUT /invoice/{id}/:createPayment returns 404, try POST approach or different path
-- For payment registration: first GET /ledger/paymentType to find valid IDs, then PUT /invoice/ID/:createPayment?paymentDate=...&paymentTypeId=ID&paidAmount=...
-- paymentTypeId=0 is INVALID — you must look up the real ID from /ledger/paymentType
+- If PUT /invoice/{id}/:createPayment returns 404, try these alternatives:
+  1. POST /payment with body: {{"date": "YYYY-MM-DD", "amount": N, "amountCurrency": N, "paymentType": {{"id": 1}}, "invoice": {{"id": INVOICE_ID}}}}
+  2. PUT /invoice/{id}/:pay?paymentDate=YYYY-MM-DD&paymentTypeId=1&paidAmount=N
+- paymentTypeId=0 is INVALID — use 1 or 2
+- paidAmount must be INCLUDING VAT (use the "amount" field from invoice response)
 
 Provide a COMPLETE corrected JSON array of ONLY the calls that still need to succeed.
 DO NOT repeat calls that already returned 200/201 — those entities exist and their IDs are in the results above.
