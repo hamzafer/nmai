@@ -340,6 +340,94 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
     return results
 
 
+def _try_payment_fallbacks(results: list, plan: list, base_url: str, token: str) -> bool:
+    """
+    When :createPayment returns 404, brute-force try alternative payment endpoints.
+    Returns True if payment succeeded on any path.
+    """
+    auth = ("0", token)
+
+    # Find the failed payment call and successful invoice call
+    invoice_id = None
+    invoice_amount = None
+    payment_date = None
+    payment_failed = False
+
+    for i, (p, r) in enumerate(zip(plan, results)):
+        path = p.get("path", "")
+        # Find successful invoice creation
+        if r.get("status") in (200, 201) and r.get("id"):
+            data = r.get("data", {})
+            if isinstance(data, dict) and "amount" in data:
+                invoice_id = r["id"]
+                invoice_amount = data["amount"]
+        # Find failed payment call
+        if ("createPayment" in path or "payment" in path.lower() or ":pay" in path) \
+                and r.get("status") in (404, 500, None) or ("payment" in path.lower() and r.get("error")):
+            payment_failed = True
+            # Extract payment date from the path query params
+            import urllib.parse
+            parsed = urllib.parse.urlparse(path)
+            params = urllib.parse.parse_qs(parsed.query)
+            payment_date = params.get("paymentDate", [None])[0]
+
+    if not payment_failed or not invoice_id or not invoice_amount:
+        return False
+
+    if not payment_date:
+        payment_date = "2026-01-15"  # fallback date
+
+    print(f"\n  [PAYMENT FALLBACK] invoice_id={invoice_id}, amount={invoice_amount}, date={payment_date}")
+
+    # Try multiple endpoint patterns × multiple paymentTypeIds
+    endpoints = [
+        ("PUT", f"/invoice/{invoice_id}/:createPayment", True),   # query params
+        ("PUT", f"/invoice/{invoice_id}/:pay", True),             # query params
+        ("POST", f"/invoice/{invoice_id}/payment", False),        # body
+        ("POST", "/payment", False),                               # body with invoice ref
+    ]
+
+    for type_id in [1, 2, 3]:
+        for method, path, use_query in endpoints:
+            if use_query:
+                url = f"{base_url}{path}?paymentDate={payment_date}&paymentTypeId={type_id}&paidAmount={invoice_amount}&paidAmountCurrency={invoice_amount}"
+                body = {}
+            else:
+                url = f"{base_url}{path}"
+                body = {
+                    "date": payment_date,
+                    "paymentDate": payment_date,
+                    "amount": invoice_amount,
+                    "amountCurrency": invoice_amount,
+                    "paidAmount": invoice_amount,
+                    "paidAmountCurrency": invoice_amount,
+                    "paymentType": {"id": type_id},
+                    "paymentTypeId": type_id,
+                }
+                if "POST" == method and path == "/payment":
+                    body["invoice"] = {"id": invoice_id}
+
+            try:
+                if method == "PUT":
+                    resp = requests.put(url, auth=auth, json=body if not use_query else {}, timeout=15)
+                else:
+                    resp = requests.post(url, auth=auth, json=body, timeout=15)
+
+                print(f"    {method} {path} typeId={type_id} → {resp.status_code}")
+
+                if resp.status_code in (200, 201):
+                    print(f"    ✓ PAYMENT SUCCESS! endpoint={method} {path}, typeId={type_id}")
+                    return True
+                elif resp.status_code == 422:
+                    # Validation error means the endpoint EXISTS but params are wrong
+                    print(f"    → 422 (endpoint exists!): {resp.text[:150]}")
+            except Exception as e:
+                print(f"    → Exception: {e}")
+
+    print(f"    ✗ All payment fallbacks failed")
+    return False
+
+
 def parse_llm_plan(response: str) -> list:
     """Extract JSON array of API calls from LLM response. Prefers last valid block."""
     # Try ALL ```json blocks, prefer the last valid one (LLM often self-corrects)
@@ -492,6 +580,16 @@ Return ONLY a JSON array of Tripletex API calls. No explanation. Example format:
         success = sum(1 for r in results if r.get("status") in (200, 201))
         failed = [r for r in results if r.get("status") not in (200, 201, None) or r.get("error")]
         print(f"  Results: {success}/{len(results)} successful")
+
+        # Try payment fallbacks if a payment call failed with 404
+        if any("payment" in p.get("path", "").lower() or "createPayment" in p.get("path", "")
+               for p, r in zip(current_plan, results)
+               if r.get("status") in (404, 500)):
+            payment_ok = _try_payment_fallbacks(results, current_plan, base_url, session_token)
+            if payment_ok:
+                # Recount — payment succeeded via fallback
+                failed = [r for r in results if r.get("status") not in (200, 201, None) or r.get("error")]
+                print(f"  After payment fallback: {len(failed)} remaining failures")
 
         # All succeeded — done
         if not failed:
