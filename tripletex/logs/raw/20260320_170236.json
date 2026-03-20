@@ -1,0 +1,8 @@
+{
+  "prompt": "Defina um preço fixo de 324900 NOK no projeto \"Migração para nuvem\" para Cascata Lda (org. nº 904335843). O gestor de projeto é Tiago Santos (tiago.santos@example.org). Fature ao cliente 50 % do preço fixo como pagamento por etapa.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "FytGTihGBQleYo3fgRwnomIJvH4CsELtBoY2krBkmgk"
+  }
+}

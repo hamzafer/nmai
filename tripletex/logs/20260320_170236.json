@@ -1,0 +1,628 @@
+{
+  "timestamp": "2026-03-20T17:02:36.207615+00:00",
+  "prompt": "Defina um preço fixo de 324900 NOK no projeto \"Migração para nuvem\" para Cascata Lda (org. nº 904335843). O gestor de projeto é Tiago Santos (tiago.santos@example.org). Fature ao cliente 50 % do preço fixo como pagamento por etapa.",
+  "files": [],
+  "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+  "llm_calls": [
+    {
+      "role": "plan",
+      "prompt_length": 531,
+      "prompt": "Task prompt:\nDefina um preço fixo de 324900 NOK no projeto \"Migração para nuvem\" para Cascata Lda (org. nº 904335843). O gestor de projeto é Tiago Santos (tiago.santos@example.org). Fature ao cliente 50 % do preço fixo como pagamento por etapa.\n\nBase URL: https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2\nAuthentication: Basic Auth with username \"0\" and the session token.\n\nAnalyze this task and provide the JSON array of API calls needed to complete it.\nRemember: be precise and minimal. Each unnecessary call or error hurts the score.",
+      "response_length": 2481,
+      "response": "I need to analyze this task step by step:\n\n1. Create a project \"Migração para nuvem\" with a fixed price of 324900 NOK\n2. The customer is \"Cascata Lda\" (org. nº 904335843)\n3. Project manager is Tiago Santos (tiago.santos@example.org)\n4. Invoice the customer 50% of the fixed price (162450 NOK) as a milestone payment\n\nLet me plan the API calls:\n\n1. Create department (prerequisite for employee)\n2. Create customer \"Cascata Lda\"\n3. Create employee Tiago Santos\n4. Create the project with fixed price\n5. Create an order for 50% of the fixed price and invoice it\n\n```json\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\"name\": \"General\", \"departmentNumber\": 1},\n    \"description\": \"Create department\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/customer\",\n    \"body\": {\"name\": \"Cascata Lda\", \"email\": \"info@cascata.pt\", \"isCustomer\": true, \"organizationNumber\": \"904335843\"},\n    \"description\": \"Create customer Cascata Lda\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\"firstName\": \"Tiago\", \"lastName\": \"Santos\", \"email\": \"tiago.santos@example.org\", \"userType\": \"STANDARD\", \"department\": {\"id\": \"{result_0_id}\"}},\n    \"description\": \"Create employee Tiago Santos\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/project\",\n    \"body\": {\n      \"name\": \"Migração para nuvem\",\n      \"projectManager\": {\"id\": \"{result_2_id}\"},\n      \"customer\": {\"id\": \"{result_1_id}\"},\n      \"isInternal\": false,\n      \"startDate\": \"2025-01-01\",\n      \"fixedPrice\": 324900\n    },\n    \"description\": \"Create project with fixed price 324900 NOK\",\n    \"depends_on\": 2\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/product\",\n    \"body\": {\"name\": \"Migração para nuvem - Pagamento por etapa 50%\", \"priceExcludingVatCurrency\": 162450},\n    \"description\": \"Create product for 50% milestone payment\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/order\",\n    \"body\": {\n      \"customer\": {\"id\": \"{result_1_id}\"},\n      \"deliveryDate\": \"2025-07-01\",\n      \"orderDate\": \"2025-07-01\",\n      \"project\": {\"id\": \"{result_3_id}\"},\n      \"orderLines\": [{\"product\": {\"id\": \"{result_4_id}\"}, \"count\": 1, \"unitPriceExcludingVatCurrency\": 162450}]\n    },\n    \"description\": \"Create order for 50% milestone payment\",\n    \"depends_on\": 4\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/order/{prev_id}/:invoice?invoiceDate=2025-07-01&invoiceDueDate=2025-07-31\",\n    \"body\": {},\n    \"description\": \"Convert order to invoice for 50% milestone\",\n    \"depends_on\": 5\n  }\n]\n```"
+    },
+    {
+      "role": "fix_1",
+      "prompt_length": 8278,
+      "prompt": "Original task: Defina um preço fixo de 324900 NOK no projeto \"Migração para nuvem\" para Cascata Lda (org. nº 904335843). O gestor de projeto é Tiago Santos (tiago.santos@example.org). Fature ao cliente 50 % do preço fixo como pagamento por etapa.\n\n\n--- Round 1 ---\nCalls made:\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\n      \"name\": \"General\",\n      \"departmentNumber\": 1\n    },\n    \"description\": \"Create department\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/customer\",\n    \"body\": {\n      \"name\": \"Cascata Lda\",\n      \"email\": \"info@cascata.pt\",\n      \"isCustomer\": true,\n      \"organizationNumber\": \"904335843\"\n    },\n    \"description\": \"Create customer Cascata Lda\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\n      \"firstName\": \"Tiago\",\n      \"lastName\": \"Santos\",\n      \"email\": \"tiago.santos@example.org\",\n      \"userType\": \"STANDARD\",\n      \"department\": {\n        \"id\": \"{result_0_id}\"\n      }\n    },\n    \"description\": \"Create employee Tiago Santos\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/project\",\n    \"body\": {\n      \"name\": \"Migra\\u00e7\\u00e3o para nuvem\",\n      \"projectManager\": {\n        \"id\": \"{result_2_id}\"\n      },\n      \"customer\": {\n        \"id\": \"{result_1_id}\"\n      },\n      \"isInternal\": false,\n      \"startDate\": \"2025-01-01\",\n      \"fixedPrice\": 324900\n    },\n    \"description\": \"Create project with fixed price 324900 NOK\",\n    \"depends_on\": 2\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/product\",\n    \"body\": {\n      \"name\": \"Migra\\u00e7\\u00e3o para nuvem - Pagamento por etapa 50%\",\n      \"priceExcludingVatCurrency\": 162450\n    },\n    \"description\": \"Create product for 50% milestone payment\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/order\",\n    \"body\": {\n      \"customer\": {\n        \"id\": \"{result_1_id}\"\n      },\n      \"deliveryDate\": \"2025-07-01\",\n      \"orderDate\": \"2025-07-01\",\n      \"project\": {\n        \"id\": \"{result_3_id}\"\n      },\n      \"orderLines\": [\n        {\n          \"product\": {\n            \"id\": \"{result_4_id}\"\n          },\n          \"count\": 1,\n          \"unitPriceExcludingVatCurrency\": 162450\n        }\n      ]\n    },\n    \"description\": \"Create order for 50% milestone payment\",\n    \"depends_on\": 4\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/order/{prev_id}/:invoice?invoiceDate=2025-07-01&invoiceDueDate=2025-07-31\",\n    \"body\": {},\n    \"description\": \"Convert order to invoice for 50% milestone\",\n    \"depends_on\": 5\n  }\n]\nResults:\n[\n  {\n    \"status\": 201,\n    \"id\": 904214,\n    \"data\": {\n      \"id\": 904214,\n      \"version\": 0,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/department/904214\",\n      \"name\": \"General\",\n      \"departmentNumber\": \"1\",\n      \"departmentManager\": null,\n      \"displayName\": \"1 General\",\n      \"isInactive\": false,\n      \"businessActivityTypeId\": 0\n    }\n  },\n  {\n    \"status\": 201,\n    \"id\": 108249547,\n    \"data\": {\n      \"id\": 108249547,\n      \"version\": 1,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/customer/108249547\",\n      \"name\": \"Cascata Lda\",\n      \"organizationNumber\": \"904335843\",\n      \"globalLocationNumber\": 0,\n      \"supplierNumber\": 0,\n      \"customerNumber\": 10002,\n      \"isSupplier\": false,\n      \"isCustomer\": true,\n      \"isInactive\": false,\n      \"accountManager\": null,\n      \"department\": null,\n      \"email\": \"info@cascata.pt\",\n      \"invoiceEmail\": \"\",\n      \"overdueNoticeEmail\": \"\",\n      \"phoneNumber\": \"\",\n      \"phoneNumberMobile\": \"\",\n      \"description\": \"\",\n      \"language\": \"NO\",\n      \"displayName\": \"Cascata Lda (10002)\",\n      \"isPrivateIndividual\": false,\n      \"singleCustomerInvoice\": false,\n      \"invoiceSendMethod\": \"EMAIL\",\n      \"emailAttachmentType\": \"ATTACHMENT\",\n      \"postalAddress\": {\n        \"id\": 405350471,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/address/405350471\"\n      },\n      \"physicalAddress\": {\n        \"id\": 405350470,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/address/405350470\"\n      },\n      \"deliveryAddress\": null,\n      \"category1\": null,\n      \"category2\": null,\n      \"category3\": null,\n      \"invoicesDueIn\": 14,\n      \"invoicesDueInType\": \"DAYS\",\n      \"currency\": {\n        \"id\": 1,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/currency/1\"\n      },\n      \"bankAccountPresentation\": [],\n      \"ledgerAccount\": {\n        \"id\": 356524654,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/ledger/account/356524654\"\n      },\n      \"isFactoring\": false,\n      \"invoiceSendSMSNotification\": false,\n      \"invoiceSMSNotificationNumber\": \"\",\n      \"isAutomaticSoftReminderEnabled\": false,\n      \"isAutomaticReminderEnabled\": false,\n      \"isAutomaticNoticeOfDebtCollectionEnabled\": false,\n      \"discountPercentage\": 0,\n      \"website\": \"\"\n    }\n  },\n  {\n    \"status\": 422,\n    \"error\": \"{\\\"status\\\":422,\\\"code\\\":18000,\\\"message\\\":\\\"Validering feilet.\\\",\\\"link\\\":\\\"https://tripletex.no/v2-docs/\\\",\\\"developerMessage\\\":\\\"VALIDATION_ERROR\\\",\\\"validationMessages\\\":[{\\\"field\\\":\\\"email\\\",\\\"message\\\":\\\"Det finnes allerede en bruker med denn",
+      "response_length": 1531,
+      "response": "Looking at the results, I need to:\n\n1. Find the existing employee with email `tiago.santos@example.org` (call 2 failed because email already exists)\n2. Create the project with the found employee ID\n3. Create the order linked to the project\n4. Invoice 50% of the fixed price\n\nLet me fix the remaining calls:\n\n```json\n[\n  {\n    \"method\": \"GET\",\n    \"path\": \"/employee?email=tiago.santos@example.org\",\n    \"body\": null,\n    \"description\": \"Find existing employee Tiago Santos\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/project\",\n    \"body\": {\n      \"name\": \"Migração para nuvem\",\n      \"projectManager\": {\"id\": \"{prev_id}\"},\n      \"customer\": {\"id\": 108249547},\n      \"isInternal\": false,\n      \"startDate\": \"2025-01-01\",\n      \"fixedPrice\": 324900\n    },\n    \"description\": \"Create project with fixed price 324900 NOK\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/order\",\n    \"body\": {\n      \"customer\": {\"id\": 108249547},\n      \"deliveryDate\": \"2025-07-01\",\n      \"orderDate\": \"2025-07-01\",\n      \"project\": {\"id\": \"{prev_id}\"},\n      \"orderLines\": [\n        {\n          \"product\": {\"id\": 84387523},\n          \"count\": 1,\n          \"unitPriceExcludingVatCurrency\": 162450\n        }\n      ]\n    },\n    \"description\": \"Create order for 50% milestone payment\",\n    \"depends_on\": 1\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/order/{prev_id}/:invoice?invoiceDate=2025-07-01&invoiceDueDate=2025-07-31\",\n    \"body\": {},\n    \"description\": \"Convert order to invoice for 50% milestone\",\n    \"depends_on\": 2\n  }\n]\n```"
+    },
+    {
+      "role": "fix_2",
+      "prompt_length": 12034,
+      "prompt": "Original task: Defina um preço fixo de 324900 NOK no projeto \"Migração para nuvem\" para Cascata Lda (org. nº 904335843). O gestor de projeto é Tiago Santos (tiago.santos@example.org). Fature ao cliente 50 % do preço fixo como pagamento por etapa.\n\n\n--- Round 1 ---\nCalls made:\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\n      \"name\": \"General\",\n      \"departmentNumber\": 1\n    },\n    \"description\": \"Create department\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/customer\",\n    \"body\": {\n      \"name\": \"Cascata Lda\",\n      \"email\": \"info@cascata.pt\",\n      \"isCustomer\": true,\n      \"organizationNumber\": \"904335843\"\n    },\n    \"description\": \"Create customer Cascata Lda\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\n      \"firstName\": \"Tiago\",\n      \"lastName\": \"Santos\",\n      \"email\": \"tiago.santos@example.org\",\n      \"userType\": \"STANDARD\",\n      \"department\": {\n        \"id\": \"{result_0_id}\"\n      }\n    },\n    \"description\": \"Create employee Tiago Santos\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/project\",\n    \"body\": {\n      \"name\": \"Migra\\u00e7\\u00e3o para nuvem\",\n      \"projectManager\": {\n        \"id\": \"{result_2_id}\"\n      },\n      \"customer\": {\n        \"id\": \"{result_1_id}\"\n      },\n      \"isInternal\": false,\n      \"startDate\": \"2025-01-01\",\n      \"fixedPrice\": 324900\n    },\n    \"description\": \"Create project with fixed price 324900 NOK\",\n    \"depends_on\": 2\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/product\",\n    \"body\": {\n      \"name\": \"Migra\\u00e7\\u00e3o para nuvem - Pagamento por etapa 50%\",\n      \"priceExcludingVatCurrency\": 162450\n    },\n    \"description\": \"Create product for 50% milestone payment\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/order\",\n    \"body\": {\n      \"customer\": {\n        \"id\": \"{result_1_id}\"\n      },\n      \"deliveryDate\": \"2025-07-01\",\n      \"orderDate\": \"2025-07-01\",\n      \"project\": {\n        \"id\": \"{result_3_id}\"\n      },\n      \"orderLines\": [\n        {\n          \"product\": {\n            \"id\": \"{result_4_id}\"\n          },\n          \"count\": 1,\n          \"unitPriceExcludingVatCurrency\": 162450\n        }\n      ]\n    },\n    \"description\": \"Create order for 50% milestone payment\",\n    \"depends_on\": 4\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/order/{prev_id}/:invoice?invoiceDate=2025-07-01&invoiceDueDate=2025-07-31\",\n    \"body\": {},\n    \"description\": \"Convert order to invoice for 50% milestone\",\n    \"depends_on\": 5\n  }\n]\nResults:\n[\n  {\n    \"status\": 201,\n    \"id\": 904214,\n    \"data\": {\n      \"id\": 904214,\n      \"version\": 0,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/department/904214\",\n      \"name\": \"General\",\n      \"departmentNumber\": \"1\",\n      \"departmentManager\": null,\n      \"displayName\": \"1 General\",\n      \"isInactive\": false,\n      \"businessActivityTypeId\": 0\n    }\n  },\n  {\n    \"status\": 201,\n    \"id\": 108249547,\n    \"data\": {\n      \"id\": 108249547,\n      \"version\": 1,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/customer/108249547\",\n      \"name\": \"Cascata Lda\",\n      \"organizationNumber\": \"904335843\",\n      \"globalLocationNumber\": 0,\n      \"supplierNumber\": 0,\n      \"customerNumber\": 10002,\n      \"isSupplier\": false,\n      \"isCustomer\": true,\n      \"isInactive\": false,\n      \"accountManager\": null,\n      \"department\": null,\n      \"email\": \"info@cascata.pt\",\n      \"invoiceEmail\": \"\",\n      \"overdueNoticeEmail\": \"\",\n      \"phoneNumber\": \"\",\n      \"phoneNumberMobile\": \"\",\n      \"description\": \"\",\n      \"language\": \"NO\",\n      \"displayName\": \"Cascata Lda (10002)\",\n      \"isPrivateIndividual\": false,\n      \"singleCustomerInvoice\": false,\n      \"invoiceSendMethod\": \"EMAIL\",\n      \"emailAttachmentType\": \"ATTACHMENT\",\n      \"postalAddress\": {\n        \"id\": 405350471,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/address/405350471\"\n      },\n      \"physicalAddress\": {\n        \"id\": 405350470,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/address/405350470\"\n      },\n      \"deliveryAddress\": null,\n      \"category1\": null,\n      \"category2\": null,\n      \"category3\": null,\n      \"invoicesDueIn\": 14,\n      \"invoicesDueInType\": \"DAYS\",\n      \"currency\": {\n        \"id\": 1,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/currency/1\"\n      },\n      \"bankAccountPresentation\": [],\n      \"ledgerAccount\": {\n        \"id\": 356524654,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/ledger/account/356524654\"\n      },\n      \"isFactoring\": false,\n      \"invoiceSendSMSNotification\": false,\n      \"invoiceSMSNotificationNumber\": \"\",\n      \"isAutomaticSoftReminderEnabled\": false,\n      \"isAutomaticReminderEnabled\": false,\n      \"isAutomaticNoticeOfDebtCollectionEnabled\": false,\n      \"discountPercentage\": 0,\n      \"website\": \"\"\n    }\n  },\n  {\n    \"status\": 422,\n    \"error\": \"{\\\"status\\\":422,\\\"code\\\":18000,\\\"message\\\":\\\"Validering feilet.\\\",\\\"link\\\":\\\"https://tripletex.no/v2-docs/\\\",\\\"developerMessage\\\":\\\"VALIDATION_ERROR\\\",\\\"validationMessages\\\":[{\\\"field\\\":\\\"email\\\",\\\"message\\\":\\\"Det finnes allerede en bruker med denn",
+      "response_length": 2158,
+      "response": "Looking at the results, I need to:\n\n1. The employee Tiago Santos exists (id: 18184429) ✓\n2. The customer Cascata Lda exists (id: 108249547) ✓\n3. The product exists (id: 84387523) ✓\n4. The project creation failed because `fixedPrice` is not a valid field on the project endpoint. I need to create the project without it and then set the fixed price separately.\n\nLet me search for how to set a fixed price on a project. The field might need to be set via a different mechanism - possibly through project settings or a specific endpoint. Let me create the project first, then look for a way to set fixed price.\n\n```json\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/project\",\n    \"body\": {\n      \"name\": \"Migração para nuvem\",\n      \"projectManager\": {\"id\": 18184429},\n      \"customer\": {\"id\": 108249547},\n      \"isInternal\": false,\n      \"startDate\": \"2025-01-01\"\n    },\n    \"description\": \"Create project Migração para nuvem\"\n  },\n  {\n    \"method\": \"GET\",\n    \"path\": \"/project/settings\",\n    \"body\": null,\n    \"description\": \"Check project settings endpoint\"\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/project/{result_0_id}\",\n    \"body\": {\n      \"id\": \"{result_0_id}\",\n      \"name\": \"Migração para nuvem\",\n      \"projectManager\": {\"id\": 18184429},\n      \"customer\": {\"id\": 108249547},\n      \"isInternal\": false,\n      \"startDate\": \"2025-01-01\",\n      \"fixedprice\": 324900\n    },\n    \"description\": \"Try updating project with fixed price via PUT\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/order\",\n    \"body\": {\n      \"customer\": {\"id\": 108249547},\n      \"deliveryDate\": \"2025-07-01\",\n      \"orderDate\": \"2025-07-01\",\n      \"project\": {\"id\": \"{result_0_id}\"},\n      \"orderLines\": [\n        {\n          \"product\": {\"id\": 84387523},\n          \"count\": 1,\n          \"unitPriceExcludingVatCurrency\": 162450\n        }\n      ]\n    },\n    \"description\": \"Create order for 50% milestone payment\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/order/{prev_id}/:invoice?invoiceDate=2025-07-01&invoiceDueDate=2025-07-31\",\n    \"body\": {},\n    \"description\": \"Convert order to invoice for 50% milestone\",\n    \"depends_on\": 3\n  }\n]\n```"
+    }
+  ],
+  "plan": [
+    {
+      "method": "POST",
+      "path": "/department",
+      "body": {
+        "name": "General",
+        "departmentNumber": 1
+      },
+      "description": "Create department"
+    },
+    {
+      "method": "POST",
+      "path": "/customer",
+      "body": {
+        "name": "Cascata Lda",
+        "email": "info@cascata.pt",
+        "isCustomer": true,
+        "organizationNumber": "904335843"
+      },
+      "description": "Create customer Cascata Lda"
+    },
+    {
+      "method": "POST",
+      "path": "/employee",
+      "body": {
+        "firstName": "Tiago",
+        "lastName": "Santos",
+        "email": "tiago.santos@example.org",
+        "userType": "STANDARD",
+        "department": {
+          "id": "{result_0_id}"
+        }
+      },
+      "description": "Create employee Tiago Santos",
+      "depends_on": 0
+    },
+    {
+      "method": "POST",
+      "path": "/project",
+      "body": {
+        "name": "Migração para nuvem",
+        "projectManager": {
+          "id": "{result_2_id}"
+        },
+        "customer": {
+          "id": "{result_1_id}"
+        },
+        "isInternal": false,
+        "startDate": "2025-01-01",
+        "fixedPrice": 324900
+      },
+      "description": "Create project with fixed price 324900 NOK",
+      "depends_on": 2
+    },
+    {
+      "method": "POST",
+      "path": "/product",
+      "body": {
+        "name": "Migração para nuvem - Pagamento por etapa 50%",
+        "priceExcludingVatCurrency": 162450
+      },
+      "description": "Create product for 50% milestone payment"
+    },
+    {
+      "method": "POST",
+      "path": "/order",
+      "body": {
+        "customer": {
+          "id": "{result_1_id}"
+        },
+        "deliveryDate": "2025-07-01",
+        "orderDate": "2025-07-01",
+        "project": {
+          "id": "{result_3_id}"
+        },
+        "orderLines": [
+          {
+            "product": {
+              "id": "{result_4_id}"
+            },
+            "count": 1,
+            "unitPriceExcludingVatCurrency": 162450
+          }
+        ]
+      },
+      "description": "Create order for 50% milestone payment",
+      "depends_on": 4
+    },
+    {
+      "method": "PUT",
+      "path": "/order/{prev_id}/:invoice?invoiceDate=2025-07-01&invoiceDueDate=2025-07-31",
+      "body": {},
+      "description": "Convert order to invoice for 50% milestone",
+      "depends_on": 5
+    }
+  ],
+  "api_calls": [
+    {
+      "status": 201,
+      "id": 904214,
+      "data": {
+        "id": 904214,
+        "version": 0,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/department/904214",
+        "name": "General",
+        "departmentNumber": "1",
+        "departmentManager": null,
+        "displayName": "1 General",
+        "isInactive": false,
+        "businessActivityTypeId": 0
+      }
+    },
+    {
+      "status": 201,
+      "id": 108249547,
+      "data": {
+        "id": 108249547,
+        "version": 1,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/customer/108249547",
+        "name": "Cascata Lda",
+        "organizationNumber": "904335843",
+        "globalLocationNumber": 0,
+        "supplierNumber": 0,
+        "customerNumber": 10002,
+        "isSupplier": false,
+        "isCustomer": true,
+        "isInactive": false,
+        "accountManager": null,
+        "department": null,
+        "email": "info@cascata.pt",
+        "invoiceEmail": "",
+        "overdueNoticeEmail": "",
+        "phoneNumber": "",
+        "phoneNumberMobile": "",
+        "description": "",
+        "language": "NO",
+        "displayName": "Cascata Lda (10002)",
+        "isPrivateIndividual": false,
+        "singleCustomerInvoice": false,
+        "invoiceSendMethod": "EMAIL",
+        "emailAttachmentType": "ATTACHMENT",
+        "postalAddress": {
+          "id": 405350471,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/address/405350471"
+        },
+        "physicalAddress": {
+          "id": 405350470,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/address/405350470"
+        },
+        "deliveryAddress": null,
+        "category1": null,
+        "category2": null,
+        "category3": null,
+        "invoicesDueIn": 14,
+        "invoicesDueInType": "DAYS",
+        "currency": {
+          "id": 1,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/currency/1"
+        },
+        "bankAccountPresentation": [],
+        "ledgerAccount": {
+          "id": 356524654,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/ledger/account/356524654"
+        },
+        "isFactoring": false,
+        "invoiceSendSMSNotification": false,
+        "invoiceSMSNotificationNumber": "",
+        "isAutomaticSoftReminderEnabled": false,
+        "isAutomaticReminderEnabled": false,
+        "isAutomaticNoticeOfDebtCollectionEnabled": false,
+        "discountPercentage": 0,
+        "website": ""
+      }
+    },
+    {
+      "status": 422,
+      "error": "{\"status\":422,\"code\":18000,\"message\":\"Validering feilet.\",\"link\":\"https://tripletex.no/v2-docs/\",\"developerMessage\":\"VALIDATION_ERROR\",\"validationMessages\":[{\"field\":\"email\",\"message\":\"Det finnes allerede en bruker med denne e-postadressen.\",\"path\":null,\"rootId\":null}],\"requestId\":\"9706a206-0544-4f4"
+    },
+    {
+      "error": "Unresolved references: ['{result_2_id}']",
+      "id": null
+    },
+    {
+      "status": 201,
+      "id": 84387523,
+      "data": {
+        "id": 84387523,
+        "version": 0,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/product/84387523",
+        "name": "Migração para nuvem - Pagamento por etapa 50%",
+        "number": "",
+        "displayNumber": "",
+        "description": "",
+        "orderLineDescription": "",
+        "costExcludingVatCurrency": 0,
+        "costPrice": 0,
+        "priceExcludingVatCurrency": 162450,
+        "priceIncludingVatCurrency": 203062.5,
+        "isInactive": false,
+        "productUnit": null,
+        "incomingStock": 0,
+        "outgoingStock": 0,
+        "vatType": {
+          "id": 3,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/ledger/vatType/3"
+        },
+        "currency": {
+          "id": 1,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/currency/1"
+        },
+        "department": null,
+        "account": null,
+        "supplier": null,
+        "resaleProduct": null,
+        "isDeletable": false,
+        "hasSupplierProductConnected": false,
+        "image": null,
+        "displayName": "Migração para nuvem - Pagamento por etapa 50%",
+        "mainSupplierProduct": null,
+        "isRoundPriceIncVat": false,
+        "priceInTargetCurrency": 0,
+        "purchasePriceCurrency": 0
+      }
+    },
+    {
+      "error": "Unresolved references: ['{result_3_id}']",
+      "id": null
+    },
+    {
+      "error": "Unresolved references: ['{prev_id}']",
+      "id": null
+    }
+  ],
+  "fix_plan": [
+    {
+      "method": "GET",
+      "path": "/employee?email=tiago.santos@example.org",
+      "body": null,
+      "description": "Find existing employee Tiago Santos"
+    },
+    {
+      "method": "POST",
+      "path": "/project",
+      "body": {
+        "name": "Migração para nuvem",
+        "projectManager": {
+          "id": "{prev_id}"
+        },
+        "customer": {
+          "id": 108249547
+        },
+        "isInternal": false,
+        "startDate": "2025-01-01",
+        "fixedPrice": 324900
+      },
+      "description": "Create project with fixed price 324900 NOK",
+      "depends_on": 0
+    },
+    {
+      "method": "POST",
+      "path": "/order",
+      "body": {
+        "customer": {
+          "id": 108249547
+        },
+        "deliveryDate": "2025-07-01",
+        "orderDate": "2025-07-01",
+        "project": {
+          "id": "{prev_id}"
+        },
+        "orderLines": [
+          {
+            "product": {
+              "id": 84387523
+            },
+            "count": 1,
+            "unitPriceExcludingVatCurrency": 162450
+          }
+        ]
+      },
+      "description": "Create order for 50% milestone payment",
+      "depends_on": 1
+    },
+    {
+      "method": "PUT",
+      "path": "/order/{prev_id}/:invoice?invoiceDate=2025-07-01&invoiceDueDate=2025-07-31",
+      "body": {},
+      "description": "Convert order to invoice for 50% milestone",
+      "depends_on": 2
+    }
+  ],
+  "fix_api_calls": [
+    {
+      "status": 201,
+      "id": 401962148,
+      "data": {
+        "id": 401962148,
+        "version": 0,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/project/401962148",
+        "name": "Migração para nuvem",
+        "number": "2",
+        "displayName": "2 Migração para nuvem",
+        "description": "",
+        "projectManager": {
+          "id": 18184429,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/employee/18184429"
+        },
+        "department": null,
+        "mainProject": null,
+        "startDate": "2025-01-01",
+        "endDate": null,
+        "customer": {
+          "id": 108249547,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/customer/108249547"
+        },
+        "isClosed": false,
+        "isReadyForInvoicing": false,
+        "isInternal": false,
+        "isOffer": false,
+        "isFixedPrice": false,
+        "projectCategory": null,
+        "deliveryAddress": null,
+        "boligmappaAddress": null,
+        "displayNameFormat": "NAME_STANDARD",
+        "reference": "",
+        "externalAccountsNumber": "",
+        "discountPercentage": 0,
+        "vatType": {
+          "id": 3,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/ledger/vatType/3"
+        },
+        "fixedprice": 0,
+        "contributionMarginPercent": 0,
+        "numberOfSubProjects": 0,
+        "numberOfProjectParticipants": 1,
+        "orderLines": [],
+        "currency": {
+          "id": 1,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/currency/1"
+        },
+        "markUpOrderLines": 0,
+        "markUpFeesEarned": 0,
+        "isPriceCeiling": false,
+        "priceCeilingAmount": 0,
+        "projectHourlyRates": [
+          {
+            "id": 11069878,
+            "url": "kkpqfuj-amager.tripletex.dev/v2/project/hourlyRates/11069878"
+          }
+        ],
+        "forParticipantsOnly": false,
+        "participants": [
+          {
+            "id": 15624383,
+            "url": "kkpqfuj-amager.tripletex.dev/v2/project/participant/15624383"
+          }
+        ],
+        "contact": null,
+        "attention": null,
+        "invoiceComment": "",
+        "invoicingPlan": [],
+        "preliminaryInvoice": null,
+        "generalProjectActivitiesPerProjectOnly": false,
+        "projectActivities": [],
+        "hierarchyNameAndNumber": "2 Migração para nuvem",
+        "invoiceDueDate": 14,
+        "invoiceDueDateType": "DAYS",
+        "invoiceReceiverEmail": "",
+        "overdueNoticeEmail": "",
+        "accessType": "WRITE",
+        "useProductNetPrice": false,
+        "ignoreCompanyProductDiscountAgreement": false,
+        "customerName": "Cascata Lda",
+        "hierarchyLevel": 0,
+        "projectManagerNameAndNumber": "Tiago Santos",
+        "totalInvoicedOnAccountAmountAbsoluteCurrency": 0.0,
+        "invoiceOnAccountVatHigh": false,
+        "invoiceReserveTotalAmountCurrency": 0,
+        "accountingDimensionValues": []
+      }
+    },
+    {
+      "status": 200,
+      "id": null,
+      "data": {
+        "approveHourLists": true,
+        "approveInvoices": false,
+        "markReadyForInvoicing": false,
+        "historicalInformation": true,
+        "projectForecast": true,
+        "budgetOnSubcontracts": false,
+        "projectCategories": true,
+        "referenceFee": false,
+        "sortOrderProjects": "SORT_ORDER_NAME_AND_NUMBER",
+        "autoCloseInvoicedProjects": false,
+        "mustApproveRegisteredHours": false,
+        "showProjectOrderLinesToAllProjectParticipants": false,
+        "hourCostPercentage": false,
+        "fixedPriceProjectsFeeCalcMethod": "FIXED_PRICE_PROJECTS_CALC_METHOD_INVOICED_FEE",
+        "fixedPriceProjectsInvoiceByProgress": false,
+        "projectBudgetReferenceFee": false,
+        "allowMultipleProjectInvoiceVat": false,
+        "standardReinvoicing": false,
+        "isCurrentMonthDefaultPeriod": true,
+        "showProjectOnboarding": true,
+        "autoConnectIncomingOrderlineToProject": true,
+        "autoGenerateProjectNumber": true,
+        "autoGenerateStartingNumber": 0,
+        "projectNameScheme": "NAME_STANDARD",
+        "projectTypeOfContract": "PROJECT_HOUR_RATES",
+        "projectOrderLinesSortOrder": "SORT_ORDER_PRODUCT",
+        "projectHourlyRateModel": "TYPE_FIXED_HOURLY_RATE",
+        "onlyProjectMembersCanRegisterInfo": false,
+        "onlyProjectActivitiesTimesheetRegistration": false,
+        "hourlyRateProjectsWriteUpDown": false,
+        "showRecentlyClosedProjectsOnSupplierInvoice": false,
+        "defaultProjectContractComment": "",
+        "defaultProjectInvoicingComment": "",
+        "resourcePlanning": true,
+        "resourceGroups": true,
+        "holidayPlan": true,
+        "resourcePlanPeriod": "PERIOD_WEEK",
+        "customControlForms": false,
+        "controlFormsRequiredForInvoicing": [],
+        "controlFormsRequiredForHourTracking": [],
+        "dynamicControlFormIdsRequiredForInvoicing": [],
+        "dynamicControlFormIdsRequiredForHourTracking": [],
+        "useLoggedInUserEmailOnProjectBudget": false,
+        "emailOnProjectBudget": null,
+        "useLoggedInUserEmailOnProjectContract": false,
+        "emailOnProjectContract": null,
+        "useLoggedInUserEmailOnDocuments": false,
+        "emailOnDocuments": null,
+        "useProductNetPrice": false,
+        "isNHOMember": false
+      }
+    },
+    {
+      "status": 200,
+      "id": 401962148,
+      "data": {
+        "id": 401962148,
+        "version": 2,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/project/401962148",
+        "name": "Migração para nuvem",
+        "number": "2",
+        "displayName": "2 Migração para nuvem",
+        "description": "",
+        "projectManager": {
+          "id": 18184429,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/employee/18184429"
+        },
+        "department": null,
+        "mainProject": null,
+        "startDate": "2025-01-01",
+        "endDate": null,
+        "customer": {
+          "id": 108249547,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/customer/108249547"
+        },
+        "isClosed": false,
+        "isReadyForInvoicing": false,
+        "isInternal": false,
+        "isOffer": false,
+        "isFixedPrice": false,
+        "projectCategory": null,
+        "deliveryAddress": null,
+        "boligmappaAddress": null,
+        "displayNameFormat": "NAME_STANDARD",
+        "reference": "",
+        "externalAccountsNumber": "",
+        "discountPercentage": 0.0,
+        "vatType": {
+          "id": 3,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/ledger/vatType/3"
+        },
+        "fixedprice": 0,
+        "contributionMarginPercent": 0,
+        "numberOfSubProjects": 0,
+        "numberOfProjectParticipants": 1,
+        "orderLines": [],
+        "currency": {
+          "id": 1,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/currency/1"
+        },
+        "markUpOrderLines": 0.0,
+        "markUpFeesEarned": 0.0,
+        "isPriceCeiling": false,
+        "priceCeilingAmount": 0.0,
+        "projectHourlyRates": [
+          {
+            "id": 11069878,
+            "url": "kkpqfuj-amager.tripletex.dev/v2/project/hourlyRates/11069878"
+          }
+        ],
+        "forParticipantsOnly": false,
+        "participants": [
+          {
+            "id": 15624383,
+            "url": "kkpqfuj-amager.tripletex.dev/v2/project/participant/15624383"
+          }
+        ],
+        "contact": null,
+        "attention": null,
+        "invoiceComment": "",
+        "invoicingPlan": [],
+        "preliminaryInvoice": null,
+        "generalProjectActivitiesPerProjectOnly": false,
+        "projectActivities": [],
+        "hierarchyNameAndNumber": "2 Migração para nuvem",
+        "invoiceDueDate": 14,
+        "invoiceDueDateType": "DAYS",
+        "invoiceReceiverEmail": "",
+        "overdueNoticeEmail": "",
+        "accessType": "WRITE",
+        "useProductNetPrice": false,
+        "ignoreCompanyProductDiscountAgreement": false,
+        "customerName": "Cascata Lda",
+        "hierarchyLevel": 0,
+        "projectManagerNameAndNumber": "Tiago Santos",
+        "totalInvoicedOnAccountAmountAbsoluteCurrency": 0.0,
+        "invoiceOnAccountVatHigh": false,
+        "invoiceReserveTotalAmountCurrency": 0,
+        "accountingDimensionValues": []
+      }
+    },
+    {
+      "status": 201,
+      "id": 401962149,
+      "data": {
+        "id": 401962149,
+        "version": 0,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/order/401962149",
+        "customer": {
+          "id": 108249547,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/customer/108249547"
+        },
+        "contact": null,
+        "attn": null,
+        "displayName": "3 Ordre",
+        "receiverEmail": "",
+        "overdueNoticeEmail": "",
+        "number": "3",
+        "reference": "",
+        "department": null,
+        "orderDate": "2025-07-01",
+        "project": {
+          "id": 401962148,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/project/401962148"
+        },
+        "invoiceComment": "",
+        "currency": {
+          "id": 1,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/currency/1"
+        },
+        "invoicesDueIn": 14,
+        "invoicesDueInType": "DAYS",
+        "isShowOpenPostsOnInvoices": false,
+        "isClosed": false,
+        "deliveryDate": "2025-07-01",
+        "deliveryAddress": null,
+        "deliveryComment": "",
+        "isPrioritizeAmountsIncludingVat": false,
+        "orderLineSorting": "PRODUCT",
+        "orderGroups": [],
+        "orderLines": [],
+        "isSubscription": false,
+        "subscriptionDuration": 0,
+        "subscriptionDurationType": "MONTHS",
+        "subscriptionPeriodsOnInvoice": 0,
+        "subscriptionPeriodsOnInvoiceType": "MONTHS",
+        "subscriptionInvoicingTimeInAdvanceOrArrears": "ADVANCE",
+        "subscriptionInvoicingTime": 0,
+        "subscriptionInvoicingTimeType": "MONTHS",
+        "isSubscriptionAutoInvoicing": false,
+        "preliminaryInvoice": {
+          "id": 2147533221,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/invoice/2147533221"
+        },
+        "attachment": [],
+        "sendMethodDescription": "Faktura må sendes manuelt.",
+        "invoiceOnAccountVatHigh": false,
+        "totalInvoicedOnAccountAmountAbsoluteCurrency": 0.0,
+        "invoiceSendSMSNotification": false,
+        "invoiceSMSNotificationNumber": "",
+        "markUpOrderLines": 0,
+        "discountPercentage": 0.0,
+        "customerName": "Cascata Lda",
+        "projectManagerNameAndNumber": "",
+        "travelReports": [],
+        "accountingDimensionValues": []
+      }
+    },
+    {
+      "status": 422,
+      "error": "{\"status\":422,\"code\":18000,\"message\":\"Validering feilet.\",\"link\":\"https://tripletex.no/v2-docs/\",\"developerMessage\":\"VALIDATION_ERROR\",\"validationMessages\":[{\"field\":null,\"message\":\"Faktura kan ikke opprettes før selskapet har registrert et bankkontonummer.\",\"path\":null,\"rootId\":null}],\"requestId\":\""
+    }
+  ],
+  "duration_s": 49.35
+}

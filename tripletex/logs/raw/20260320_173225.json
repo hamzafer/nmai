@@ -1,0 +1,8 @@
+{
+  "prompt": "O cliente Estrela Lda (org. nº 890872492) reclamou sobre a fatura referente a \"Consultoria de dados\" (12000 NOK sem IVA). Emita uma nota de crédito completa que reverta toda a fatura.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "82kZsrA_WS7y7M7ucht_v2mStSFJB_mj2Mxhj4ZcW5c"
+  }
+}
