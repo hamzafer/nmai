@@ -1,0 +1,8 @@
+{
+  "prompt": "Opprett prosjektet \"Implementering Tindra\" knyttet til kunden Tindra AS (org.nr 886715536). Prosjektleder er Jonas Haugen (jonas.haugen@example.org).",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "ytN5ByaNPAwyta9GRCa9tHNsi4qRHUmEJ4R0PBnN4g0"
+  }
+}

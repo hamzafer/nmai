@@ -1,0 +1,8 @@
+{
+  "prompt": "The customer Clearwater Ltd (org no. 924324104) has an outstanding invoice for 44750 NOK excluding VAT for \"Cloud Storage\". Register full payment on this invoice.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "FOUx2za_c2lDf-jblLkgrqLq4gTnqX-vSQ-rGJaWN1A"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "prompt": "Der Kunde Brückentor GmbH (Org.-Nr. 995557681) hat eine offene Rechnung über 9400 NOK ohne MwSt. für \"Webdesign\". Registrieren Sie die vollständige Zahlung dieser Rechnung.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "Yg-ddxRle2OX-3EsbOyNxipvZxmdQG76_DP291_28ic"
+  }
+}

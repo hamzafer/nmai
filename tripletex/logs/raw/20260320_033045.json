@@ -1,0 +1,8 @@
+{
+  "prompt": "Crea tres departamentos en Tripletex: \"Markedsføring\", \"Lager\" y \"Kundeservice\".",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "TEDd9BcHvvpmO0k6TFKm7dL6hNZzxHLLS7cmAnT6AGI"
+  }
+}

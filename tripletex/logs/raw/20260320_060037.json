@@ -1,0 +1,8 @@
+{
+  "prompt": "Create the project \"Upgrade Silveroak\" linked to the customer Silveroak Ltd (org no. 937657250). The project manager is Alice Smith (alice.smith@example.org).",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "mjBbIvdiI_-B0d-lt0Q9FcjRlBx-PyTPuPxuNbNQA5o"
+  }
+}

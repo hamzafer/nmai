@@ -1,0 +1,484 @@
+{
+  "timestamp": "2026-03-20T06:30:41.063504+00:00",
+  "prompt": "Kunden Nordlys AS (org.nr 884752957) har ein uteståande faktura på 28750 kr eksklusiv MVA for \"Skylagring\". Registrer full betaling på denne fakturaen.",
+  "files": [],
+  "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+  "llm_calls": [
+    {
+      "role": "plan",
+      "prompt_length": 451,
+      "prompt": "Task prompt:\nKunden Nordlys AS (org.nr 884752957) har ein uteståande faktura på 28750 kr eksklusiv MVA for \"Skylagring\". Registrer full betaling på denne fakturaen.\n\nBase URL: https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2\nAuthentication: Basic Auth with username \"0\" and the session token.\n\nAnalyze this task and provide the JSON array of API calls needed to complete it.\nRemember: be precise and minimal. Each unnecessary call or error hurts the score.",
+      "response_length": 2121,
+      "response": "I need to:\n1. Create a department (prerequisite for employee)\n2. Create an employee (prerequisite for system operations)\n3. Create customer Nordlys AS\n4. Create product \"Skylagring\" at 28750 NOK excl. VAT\n5. Create an order with this product\n6. Convert order to invoice\n7. Register full payment (28750 * 1.25 = 35937.50 NOK incl. 25% MVA)\n\n```json\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\"name\": \"General\", \"departmentNumber\": 1},\n    \"description\": \"Create department\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\"firstName\": \"Admin\", \"lastName\": \"User\", \"email\": \"admin@nordlys.no\", \"userType\": \"STANDARD\", \"department\": {\"id\": \"{prev_id}\"}},\n    \"description\": \"Create employee\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/customer\",\n    \"body\": {\"name\": \"Nordlys AS\", \"email\": \"faktura@nordlys.no\", \"isCustomer\": true, \"organizationNumber\": \"884752957\"},\n    \"description\": \"Create customer Nordlys AS\"\n  },\n  {\n    \"method\": \"GET\",\n    \"path\": \"/ledger/vatType?number=3\",\n    \"body\": null,\n    \"description\": \"Get VAT type for 25% outgoing MVA\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/product\",\n    \"body\": {\"name\": \"Skylagring\", \"priceExcludingVatCurrency\": 28750, \"vatType\": {\"id\": \"{prev_id}\"}},\n    \"description\": \"Create product Skylagring\",\n    \"depends_on\": 3\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/order\",\n    \"body\": {\"customer\": {\"id\": \"{result_2_id}\"}, \"deliveryDate\": \"2026-01-15\", \"orderDate\": \"2026-01-15\", \"orderLines\": [{\"product\": {\"id\": \"{prev_id}\"}, \"count\": 1}]},\n    \"description\": \"Create order for Nordlys AS\",\n    \"depends_on\": 4\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15\",\n    \"body\": {},\n    \"description\": \"Convert order to invoice\",\n    \"depends_on\": 5\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=35937.50&paidAmountCurrency=35937.50\",\n    \"body\": {},\n    \"description\": \"Register full payment including 25% MVA\",\n    \"depends_on\": 6\n  }\n]\n```"
+    },
+    {
+      "role": "fix_1",
+      "prompt_length": 13609,
+      "prompt": "Original task: Kunden Nordlys AS (org.nr 884752957) har ein uteståande faktura på 28750 kr eksklusiv MVA for \"Skylagring\". Registrer full betaling på denne fakturaen.\n\n\n--- Round 1 ---\nCalls made:\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\n      \"name\": \"General\",\n      \"departmentNumber\": 1\n    },\n    \"description\": \"Create department\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\n      \"firstName\": \"Admin\",\n      \"lastName\": \"User\",\n      \"email\": \"admin@nordlys.no\",\n      \"userType\": \"STANDARD\",\n      \"department\": {\n        \"id\": \"{prev_id}\"\n      }\n    },\n    \"description\": \"Create employee\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/customer\",\n    \"body\": {\n      \"name\": \"Nordlys AS\",\n      \"email\": \"faktura@nordlys.no\",\n      \"isCustomer\": true,\n      \"organizationNumber\": \"884752957\"\n    },\n    \"description\": \"Create customer Nordlys AS\"\n  },\n  {\n    \"method\": \"GET\",\n    \"path\": \"/ledger/vatType?number=3\",\n    \"body\": null,\n    \"description\": \"Get VAT type for 25% outgoing MVA\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/product\",\n    \"body\": {\n      \"name\": \"Skylagring\",\n      \"priceExcludingVatCurrency\": 28750,\n      \"vatType\": {\n        \"id\": \"{prev_id}\"\n      }\n    },\n    \"description\": \"Create product Skylagring\",\n    \"depends_on\": 3\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/order\",\n    \"body\": {\n      \"customer\": {\n        \"id\": \"{result_2_id}\"\n      },\n      \"deliveryDate\": \"2026-01-15\",\n      \"orderDate\": \"2026-01-15\",\n      \"orderLines\": [\n        {\n          \"product\": {\n            \"id\": \"{prev_id}\"\n          },\n          \"count\": 1\n        }\n      ]\n    },\n    \"description\": \"Create order for Nordlys AS\",\n    \"depends_on\": 4\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15\",\n    \"body\": {},\n    \"description\": \"Convert order to invoice\",\n    \"depends_on\": 5\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=35937.50&paidAmountCurrency=35937.50\",\n    \"body\": {},\n    \"description\": \"Register full payment including 25% MVA\",\n    \"depends_on\": 6\n  }\n]\nResults:\n[\n  {\n    \"status\": 201,\n    \"id\": 898784,\n    \"data\": {\n      \"id\": 898784,\n      \"version\": 0,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/department/898784\",\n      \"name\": \"General\",\n      \"departmentNumber\": \"1\",\n      \"departmentManager\": null,\n      \"displayName\": \"1 General\",\n      \"isInactive\": false,\n      \"businessActivityTypeId\": 0\n    }\n  },\n  {\n    \"status\": 201,\n    \"id\": 18559295,\n    \"data\": {\n      \"id\": 18559295,\n      \"version\": 1,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/employee/18559295\",\n      \"firstName\": \"Admin\",\n      \"lastName\": \"User\",\n      \"displayName\": \"Admin User\",\n      \"employeeNumber\": \"\",\n      \"dateOfBirth\": null,\n      \"email\": \"admin@nordlys.no\",\n      \"phoneNumberMobileCountry\": {\n        \"id\": 161,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/country/161\"\n      },\n      \"phoneNumberMobile\": \"\",\n      \"phoneNumberHome\": \"\",\n      \"phoneNumberWork\": \"\",\n      \"nationalIdentityNumber\": \"\",\n      \"dnumber\": \"\",\n      \"internationalId\": {\n        \"intAmeldingType\": null,\n        \"country\": null,\n        \"number\": \"\"\n      },\n      \"bankAccountNumber\": \"\",\n      \"iban\": \"\",\n      \"bic\": \"\",\n      \"creditorBankCountryId\": 0,\n      \"usesAbroadPayment\": false,\n      \"userType\": null,\n      \"allowInformationRegistration\": true,\n      \"isContact\": false,\n      \"isProxy\": false,\n      \"comments\": \"\",\n      \"address\": null,\n      \"department\": {\n        \"id\": 898784,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/department/898784\"\n      },\n      \"employments\": [],\n      \"holidayAllowanceEarned\": {\n        \"year\": 0,\n        \"amount\": 0,\n        \"basis\": 0,\n        \"amountExtraHolidayWeek\": 0\n      },\n      \"employeeCategory\": null,\n      \"isAuthProjectOverviewURL\": true,\n      \"pictureId\": 0,\n      \"companyId\": 107822567,\n      \"vismaConnect2FAactive\": false\n    }\n  },\n  {\n    \"status\": 201,\n    \"id\": 108236432,\n    \"data\": {\n      \"id\": 108236432,\n      \"version\": 1,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/customer/108236432\",\n      \"name\": \"Nordlys AS\",\n      \"organizationNumber\": \"884752957\",\n      \"globalLocationNumber\": 0,\n      \"supplierNumber\": 0,\n      \"customerNumber\": 10002,\n      \"isSupplier\": false,\n      \"isCustomer\": true,\n      \"isInactive\": false,\n      \"accountManager\": null,\n      \"department\": null,\n      \"email\": \"faktura@nordlys.no\",\n      \"invoiceEmail\": \"\",\n      \"overdueNoticeEmail\": \"\",\n      \"phoneNumber\": \"\",\n      \"phoneNumberMobile\": \"\",\n      \"description\": \"\",\n      \"language\": \"NO\",\n      \"displayName\": \"Nordlys AS (10002)\",\n      \"isPrivateIndividual\": false,\n      \"singleCustomerInvoice\": false,\n      \"invoiceSendMethod\": \"EMAIL\",\n      \"emailAttachmentType\": \"ATTACHMENT\",\n      \"postalAddress\": {\n        \"id\": 405324365,\n        \"url\": \"k",
+      "response_length": 544,
+      "response": "Looking at the results, calls 0-6 succeeded. Only call 7 (payment registration) failed with 404. The invoice was created with ID 2147520931 and amount 35937.50.\n\nI need to fix the payment registration path. Let me try a different approach for the `:createPayment` endpoint.\n\n```json\n[\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/invoice/2147520931/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=35937.50&paidAmountCurrency=35937.50\",\n    \"body\": {},\n    \"description\": \"Register full payment on invoice including 25% MVA\"\n  }\n]\n```"
+    },
+    {
+      "role": "fix_2",
+      "prompt_length": 14167,
+      "prompt": "Original task: Kunden Nordlys AS (org.nr 884752957) har ein uteståande faktura på 28750 kr eksklusiv MVA for \"Skylagring\". Registrer full betaling på denne fakturaen.\n\n\n--- Round 1 ---\nCalls made:\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\n      \"name\": \"General\",\n      \"departmentNumber\": 1\n    },\n    \"description\": \"Create department\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\n      \"firstName\": \"Admin\",\n      \"lastName\": \"User\",\n      \"email\": \"admin@nordlys.no\",\n      \"userType\": \"STANDARD\",\n      \"department\": {\n        \"id\": \"{prev_id}\"\n      }\n    },\n    \"description\": \"Create employee\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/customer\",\n    \"body\": {\n      \"name\": \"Nordlys AS\",\n      \"email\": \"faktura@nordlys.no\",\n      \"isCustomer\": true,\n      \"organizationNumber\": \"884752957\"\n    },\n    \"description\": \"Create customer Nordlys AS\"\n  },\n  {\n    \"method\": \"GET\",\n    \"path\": \"/ledger/vatType?number=3\",\n    \"body\": null,\n    \"description\": \"Get VAT type for 25% outgoing MVA\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/product\",\n    \"body\": {\n      \"name\": \"Skylagring\",\n      \"priceExcludingVatCurrency\": 28750,\n      \"vatType\": {\n        \"id\": \"{prev_id}\"\n      }\n    },\n    \"description\": \"Create product Skylagring\",\n    \"depends_on\": 3\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/order\",\n    \"body\": {\n      \"customer\": {\n        \"id\": \"{result_2_id}\"\n      },\n      \"deliveryDate\": \"2026-01-15\",\n      \"orderDate\": \"2026-01-15\",\n      \"orderLines\": [\n        {\n          \"product\": {\n            \"id\": \"{prev_id}\"\n          },\n          \"count\": 1\n        }\n      ]\n    },\n    \"description\": \"Create order for Nordlys AS\",\n    \"depends_on\": 4\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15\",\n    \"body\": {},\n    \"description\": \"Convert order to invoice\",\n    \"depends_on\": 5\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=35937.50&paidAmountCurrency=35937.50\",\n    \"body\": {},\n    \"description\": \"Register full payment including 25% MVA\",\n    \"depends_on\": 6\n  }\n]\nResults:\n[\n  {\n    \"status\": 201,\n    \"id\": 898784,\n    \"data\": {\n      \"id\": 898784,\n      \"version\": 0,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/department/898784\",\n      \"name\": \"General\",\n      \"departmentNumber\": \"1\",\n      \"departmentManager\": null,\n      \"displayName\": \"1 General\",\n      \"isInactive\": false,\n      \"businessActivityTypeId\": 0\n    }\n  },\n  {\n    \"status\": 201,\n    \"id\": 18559295,\n    \"data\": {\n      \"id\": 18559295,\n      \"version\": 1,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/employee/18559295\",\n      \"firstName\": \"Admin\",\n      \"lastName\": \"User\",\n      \"displayName\": \"Admin User\",\n      \"employeeNumber\": \"\",\n      \"dateOfBirth\": null,\n      \"email\": \"admin@nordlys.no\",\n      \"phoneNumberMobileCountry\": {\n        \"id\": 161,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/country/161\"\n      },\n      \"phoneNumberMobile\": \"\",\n      \"phoneNumberHome\": \"\",\n      \"phoneNumberWork\": \"\",\n      \"nationalIdentityNumber\": \"\",\n      \"dnumber\": \"\",\n      \"internationalId\": {\n        \"intAmeldingType\": null,\n        \"country\": null,\n        \"number\": \"\"\n      },\n      \"bankAccountNumber\": \"\",\n      \"iban\": \"\",\n      \"bic\": \"\",\n      \"creditorBankCountryId\": 0,\n      \"usesAbroadPayment\": false,\n      \"userType\": null,\n      \"allowInformationRegistration\": true,\n      \"isContact\": false,\n      \"isProxy\": false,\n      \"comments\": \"\",\n      \"address\": null,\n      \"department\": {\n        \"id\": 898784,\n        \"url\": \"kkpqfuj-amager.tripletex.dev/v2/department/898784\"\n      },\n      \"employments\": [],\n      \"holidayAllowanceEarned\": {\n        \"year\": 0,\n        \"amount\": 0,\n        \"basis\": 0,\n        \"amountExtraHolidayWeek\": 0\n      },\n      \"employeeCategory\": null,\n      \"isAuthProjectOverviewURL\": true,\n      \"pictureId\": 0,\n      \"companyId\": 107822567,\n      \"vismaConnect2FAactive\": false\n    }\n  },\n  {\n    \"status\": 201,\n    \"id\": 108236432,\n    \"data\": {\n      \"id\": 108236432,\n      \"version\": 1,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/customer/108236432\",\n      \"name\": \"Nordlys AS\",\n      \"organizationNumber\": \"884752957\",\n      \"globalLocationNumber\": 0,\n      \"supplierNumber\": 0,\n      \"customerNumber\": 10002,\n      \"isSupplier\": false,\n      \"isCustomer\": true,\n      \"isInactive\": false,\n      \"accountManager\": null,\n      \"department\": null,\n      \"email\": \"faktura@nordlys.no\",\n      \"invoiceEmail\": \"\",\n      \"overdueNoticeEmail\": \"\",\n      \"phoneNumber\": \"\",\n      \"phoneNumberMobile\": \"\",\n      \"description\": \"\",\n      \"language\": \"NO\",\n      \"displayName\": \"Nordlys AS (10002)\",\n      \"isPrivateIndividual\": false,\n      \"singleCustomerInvoice\": false,\n      \"invoiceSendMethod\": \"EMAIL\",\n      \"emailAttachmentType\": \"ATTACHMENT\",\n      \"postalAddress\": {\n        \"id\": 405324365,\n        \"url\": \"k",
+      "response_length": 643,
+      "response": "Looking at the error, the `/:createPayment` endpoint is returning 404. Let me try to find valid payment types first and then use an alternative approach for registering the payment.\n\n```json\n[\n  {\n    \"method\": \"GET\",\n    \"path\": \"/ledger/paymentType\",\n    \"body\": null,\n    \"description\": \"Get available payment types to find valid paymentTypeId\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/invoice/2147520931/payment\",\n    \"body\": {\n      \"paymentDate\": \"2026-01-20\",\n      \"paymentTypeId\": 1,\n      \"paidAmount\": 35937.50,\n      \"paidAmountCurrency\": 35937.50\n    },\n    \"description\": \"Register full payment on invoice via POST\"\n  }\n]\n```"
+    }
+  ],
+  "plan": [
+    {
+      "method": "POST",
+      "path": "/department",
+      "body": {
+        "name": "General",
+        "departmentNumber": 1
+      },
+      "description": "Create department"
+    },
+    {
+      "method": "POST",
+      "path": "/employee",
+      "body": {
+        "firstName": "Admin",
+        "lastName": "User",
+        "email": "admin@nordlys.no",
+        "userType": "STANDARD",
+        "department": {
+          "id": "{prev_id}"
+        }
+      },
+      "description": "Create employee",
+      "depends_on": 0
+    },
+    {
+      "method": "POST",
+      "path": "/customer",
+      "body": {
+        "name": "Nordlys AS",
+        "email": "faktura@nordlys.no",
+        "isCustomer": true,
+        "organizationNumber": "884752957"
+      },
+      "description": "Create customer Nordlys AS"
+    },
+    {
+      "method": "GET",
+      "path": "/ledger/vatType?number=3",
+      "body": null,
+      "description": "Get VAT type for 25% outgoing MVA"
+    },
+    {
+      "method": "POST",
+      "path": "/product",
+      "body": {
+        "name": "Skylagring",
+        "priceExcludingVatCurrency": 28750,
+        "vatType": {
+          "id": "{prev_id}"
+        }
+      },
+      "description": "Create product Skylagring",
+      "depends_on": 3
+    },
+    {
+      "method": "POST",
+      "path": "/order",
+      "body": {
+        "customer": {
+          "id": "{result_2_id}"
+        },
+        "deliveryDate": "2026-01-15",
+        "orderDate": "2026-01-15",
+        "orderLines": [
+          {
+            "product": {
+              "id": "{prev_id}"
+            },
+            "count": 1
+          }
+        ]
+      },
+      "description": "Create order for Nordlys AS",
+      "depends_on": 4
+    },
+    {
+      "method": "PUT",
+      "path": "/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15",
+      "body": {},
+      "description": "Convert order to invoice",
+      "depends_on": 5
+    },
+    {
+      "method": "PUT",
+      "path": "/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=35937.50&paidAmountCurrency=35937.50",
+      "body": {},
+      "description": "Register full payment including 25% MVA",
+      "depends_on": 6
+    }
+  ],
+  "api_calls": [
+    {
+      "status": 201,
+      "id": 898784,
+      "data": {
+        "id": 898784,
+        "version": 0,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/department/898784",
+        "name": "General",
+        "departmentNumber": "1",
+        "departmentManager": null,
+        "displayName": "1 General",
+        "isInactive": false,
+        "businessActivityTypeId": 0
+      }
+    },
+    {
+      "status": 201,
+      "id": 18559295,
+      "data": {
+        "id": 18559295,
+        "version": 1,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/employee/18559295",
+        "firstName": "Admin",
+        "lastName": "User",
+        "displayName": "Admin User",
+        "employeeNumber": "",
+        "dateOfBirth": null,
+        "email": "admin@nordlys.no",
+        "phoneNumberMobileCountry": {
+          "id": 161,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/country/161"
+        },
+        "phoneNumberMobile": "",
+        "phoneNumberHome": "",
+        "phoneNumberWork": "",
+        "nationalIdentityNumber": "",
+        "dnumber": "",
+        "internationalId": {
+          "intAmeldingType": null,
+          "country": null,
+          "number": ""
+        },
+        "bankAccountNumber": "",
+        "iban": "",
+        "bic": "",
+        "creditorBankCountryId": 0,
+        "usesAbroadPayment": false,
+        "userType": null,
+        "allowInformationRegistration": true,
+        "isContact": false,
+        "isProxy": false,
+        "comments": "",
+        "address": null,
+        "department": {
+          "id": 898784,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/department/898784"
+        },
+        "employments": [],
+        "holidayAllowanceEarned": {
+          "year": 0,
+          "amount": 0,
+          "basis": 0,
+          "amountExtraHolidayWeek": 0
+        },
+        "employeeCategory": null,
+        "isAuthProjectOverviewURL": true,
+        "pictureId": 0,
+        "companyId": 107822567,
+        "vismaConnect2FAactive": false
+      }
+    },
+    {
+      "status": 201,
+      "id": 108236432,
+      "data": {
+        "id": 108236432,
+        "version": 1,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/customer/108236432",
+        "name": "Nordlys AS",
+        "organizationNumber": "884752957",
+        "globalLocationNumber": 0,
+        "supplierNumber": 0,
+        "customerNumber": 10002,
+        "isSupplier": false,
+        "isCustomer": true,
+        "isInactive": false,
+        "accountManager": null,
+        "department": null,
+        "email": "faktura@nordlys.no",
+        "invoiceEmail": "",
+        "overdueNoticeEmail": "",
+        "phoneNumber": "",
+        "phoneNumberMobile": "",
+        "description": "",
+        "language": "NO",
+        "displayName": "Nordlys AS (10002)",
+        "isPrivateIndividual": false,
+        "singleCustomerInvoice": false,
+        "invoiceSendMethod": "EMAIL",
+        "emailAttachmentType": "ATTACHMENT",
+        "postalAddress": {
+          "id": 405324365,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/address/405324365"
+        },
+        "physicalAddress": {
+          "id": 405324364,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/address/405324364"
+        },
+        "deliveryAddress": null,
+        "category1": null,
+        "category2": null,
+        "category3": null,
+        "invoicesDueIn": 14,
+        "invoicesDueInType": "DAYS",
+        "currency": {
+          "id": 1,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/currency/1"
+        },
+        "bankAccountPresentation": [],
+        "ledgerAccount": {
+          "id": 352392106,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/ledger/account/352392106"
+        },
+        "isFactoring": false,
+        "invoiceSendSMSNotification": false,
+        "invoiceSMSNotificationNumber": "",
+        "isAutomaticSoftReminderEnabled": false,
+        "isAutomaticReminderEnabled": false,
+        "isAutomaticNoticeOfDebtCollectionEnabled": false,
+        "discountPercentage": 0,
+        "website": ""
+      }
+    },
+    {
+      "status": 200,
+      "id": 3,
+      "data": {
+        "fullResultSize": 1,
+        "from": 0,
+        "count": 1,
+        "versionDigest": "'If-None-Match' header not specified",
+        "values": [
+          {
+            "id": 3,
+            "version": 0,
+            "url": "kkpqfuj-amager.tripletex.dev/v2/ledger/vatType/3",
+            "name": "Utgående avgift, høy sats",
+            "number": "3",
+            "displayName": "3: (25%) Utgående avgift, høy sats",
+            "percentage": 25,
+            "deductionPercentage": 100.0,
+            "parentType": {
+              "id": 0,
+              "url": "kkpqfuj-amager.tripletex.dev/v2/ledger/vatType/0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "status": 201,
+      "id": 84383413,
+      "data": {
+        "id": 84383413,
+        "version": 0,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/product/84383413",
+        "name": "Skylagring",
+        "number": "",
+        "displayNumber": "",
+        "description": "",
+        "orderLineDescription": "",
+        "costExcludingVatCurrency": 0,
+        "costPrice": 0,
+        "priceExcludingVatCurrency": 28750,
+        "priceIncludingVatCurrency": 35937.5,
+        "isInactive": false,
+        "productUnit": null,
+        "incomingStock": 0,
+        "outgoingStock": 0,
+        "vatType": {
+          "id": 3,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/ledger/vatType/3"
+        },
+        "currency": {
+          "id": 1,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/currency/1"
+        },
+        "department": null,
+        "account": null,
+        "supplier": null,
+        "resaleProduct": null,
+        "isDeletable": false,
+        "hasSupplierProductConnected": false,
+        "image": null,
+        "displayName": "Skylagring",
+        "mainSupplierProduct": null,
+        "isRoundPriceIncVat": false,
+        "priceInTargetCurrency": 0,
+        "purchasePriceCurrency": 0
+      }
+    },
+    {
+      "status": 201,
+      "id": 401952845,
+      "data": {
+        "id": 401952845,
+        "version": 0,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/order/401952845",
+        "customer": {
+          "id": 108236432,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/customer/108236432"
+        },
+        "contact": null,
+        "attn": null,
+        "displayName": "2 Ordre",
+        "receiverEmail": "",
+        "overdueNoticeEmail": "",
+        "number": "2",
+        "reference": "",
+        "department": null,
+        "orderDate": "2026-01-15",
+        "project": null,
+        "invoiceComment": "",
+        "currency": {
+          "id": 1,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/currency/1"
+        },
+        "invoicesDueIn": 14,
+        "invoicesDueInType": "DAYS",
+        "isShowOpenPostsOnInvoices": false,
+        "isClosed": false,
+        "deliveryDate": "2026-01-15",
+        "deliveryAddress": null,
+        "deliveryComment": "",
+        "isPrioritizeAmountsIncludingVat": false,
+        "orderLineSorting": "PRODUCT",
+        "orderGroups": [],
+        "orderLines": [],
+        "isSubscription": false,
+        "subscriptionDuration": 0,
+        "subscriptionDurationType": "MONTHS",
+        "subscriptionPeriodsOnInvoice": 0,
+        "subscriptionPeriodsOnInvoiceType": "MONTHS",
+        "subscriptionInvoicingTimeInAdvanceOrArrears": "ADVANCE",
+        "subscriptionInvoicingTime": 0,
+        "subscriptionInvoicingTimeType": "MONTHS",
+        "isSubscriptionAutoInvoicing": false,
+        "preliminaryInvoice": {
+          "id": 2147520931,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/invoice/2147520931"
+        },
+        "attachment": [],
+        "sendMethodDescription": "Faktura må sendes manuelt.",
+        "invoiceOnAccountVatHigh": false,
+        "totalInvoicedOnAccountAmountAbsoluteCurrency": 0.0,
+        "invoiceSendSMSNotification": false,
+        "invoiceSMSNotificationNumber": "",
+        "markUpOrderLines": 0,
+        "discountPercentage": 0.0,
+        "customerName": "Nordlys AS",
+        "projectManagerNameAndNumber": "",
+        "travelReports": [],
+        "accountingDimensionValues": []
+      }
+    },
+    {
+      "status": 200,
+      "id": 2147520931,
+      "data": {
+        "id": 2147520931,
+        "version": 5,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/invoice/2147520931",
+        "invoiceNumber": 2,
+        "invoiceDate": "2026-01-15",
+        "customer": {
+          "id": 108236432,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/customer/108236432"
+        },
+        "creditedInvoice": 0,
+        "isCredited": false,
+        "invoiceDueDate": "2026-01-29",
+        "kid": "",
+        "invoiceComment": "",
+        "comment": "",
+        "orders": [
+          {
+            "id": 401952845,
+            "url": "kkpqfuj-amager.tripletex.dev/v2/order/401952845"
+          }
+        ],
+        "orderLines": [
+          {
+            "id": 1607497494,
+            "url": "kkpqfuj-amager.tripletex.dev/v2/order/orderline/1607497494"
+          }
+        ],
+        "travelReports": [],
+        "projectInvoiceDetails": [
+          {
+            "id": 1965725131,
+            "url": "kkpqfuj-amager.tripletex.dev/v2/invoice/details/1965725131"
+          }
+        ],
+        "voucher": {
+          "id": 608820210,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/ledger/voucher/608820210"
+        },
+        "deliveryDate": "2026-01-15",
+        "amount": 35937.5,
+        "amountCurrency": 35937.5,
+        "amountExcludingVat": 28750.0,
+        "amountExcludingVatCurrency": 28750.0,
+        "amountRoundoff": 0,
+        "amountRoundoffCurrency": 0,
+        "amountOutstanding": 35937.5,
+        "amountCurrencyOutstanding": 35937.5,
+        "amountOutstandingTotal": 35937.5,
+        "amountCurrencyOutstandingTotal": 35937.5,
+        "sumRemits": 0,
+        "currency": {
+          "id": 1,
+          "url": "kkpqfuj-amager.tripletex.dev/v2/currency/1"
+        },
+        "isCreditNote": false,
+        "isCharged": true,
+        "isApproved": true,
+        "postings": [
+          {
+            "id": 3844904382,
+            "url": "kkpqfuj-amager.tripletex.dev/v2/ledger/posting/3844904382"
+          }
+        ],
+        "reminders": [],
+        "invoiceRemarks": "",
+        "invoiceRemark": null,
+        "isPeriodizationPossible": true,
+        "documentId": 1024148579
+      }
+    },
+    {
+      "status": 404,
+      "error": "{\"status\":404,\"code\":6000,\"message\":\"Object not found\",\"link\":\"https://tripletex.no/v2-docs/\",\"developerMessage\":null,\"validationMessages\":null,\"requestId\":\"860f95c2-ec2b-4da4-a0be-fa7842a3b89f\"}"
+    }
+  ],
+  "fix_plan": [
+    {
+      "method": "PUT",
+      "path": "/invoice/2147520931/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=35937.50&paidAmountCurrency=35937.50",
+      "body": {},
+      "description": "Register full payment on invoice including 25% MVA"
+    }
+  ],
+  "fix_api_calls": [
+    {
+      "status": 404,
+      "error": "{\"status\":404,\"code\":6000,\"message\":\"Object not found\",\"link\":\"https://tripletex.no/v2-docs/\",\"developerMessage\":null,\"validationMessages\":null,\"requestId\":\"df5d4842-b715-4d88-9c9a-2c7c32dded2f\"}"
+    },
+    {
+      "status": 404,
+      "error": "{\"status\":404,\"code\":6000,\"message\":\"Object not found\",\"link\":\"https://tripletex.no/v2-docs/\",\"developerMessage\":null,\"validationMessages\":null,\"requestId\":\"007b185b-4816-4823-91c6-9f57c89d7ed2\"}"
+    }
+  ],
+  "duration_s": 38.29
+}

@@ -1,0 +1,8 @@
+{
+  "prompt": "Nous avons un nouvel employé nommé Sarah Richard, né le 15. August 1980. Veuillez le créer en tant qu'employé avec l'e-mail sarah.richard@example.org et la date de début 29. June 2026.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "edyrpkkwfaLdukgu-XcD3HR80vHAiW0a6nEaJrDaCsY"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "prompt": "Erstellen und senden Sie eine Rechnung an den Kunden Waldstein GmbH (Org.-Nr. 925346519) über 25100 NOK ohne MwSt. Die Rechnung betrifft Systementwicklung.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "Tj0zvER7tZNKBMnMHS5kXpYIMbXUHT-_WYd-Goj3IhU"
+  }
+}

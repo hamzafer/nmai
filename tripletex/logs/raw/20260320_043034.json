@@ -1,0 +1,8 @@
+{
+  "prompt": "Crie três departamentos no Tripletex: \"HR\", \"Lager\" e \"IT\".",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "8mwQM6nJGOXFcin1_Jt_ujk8qtZR2HU8I5GGMkGbXeg"
+  }
+}

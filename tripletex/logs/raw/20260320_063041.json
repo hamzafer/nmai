@@ -1,0 +1,8 @@
+{
+  "prompt": "Kunden Nordlys AS (org.nr 884752957) har ein uteståande faktura på 28750 kr eksklusiv MVA for \"Skylagring\". Registrer full betaling på denne fakturaen.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "ZdZBWQUpzSf-AF_AoB_CNCrZ7JZ5EvKuxbIur1jvuDg"
+  }
+}
