@@ -50,15 +50,23 @@ POST /customer — Create a customer
   Required: name, email, isCustomer (must be true)
   Optional: organizationNumber, phoneNumber, isSupplier
 
+POST /supplier — Create a supplier (use this instead of /customer with isSupplier)
+  Required: name, email
+  Optional: organizationNumber, phoneNumber
+  NOTE: When task says "supplier" / "leverandør" / "Lieferant" / "fournisseur" / "proveedor",
+  use POST /supplier — NOT POST /customer with isSupplier=true.
+  The /customer endpoint auto-sets isCustomer=true even if you pass isCustomer=false.
+
 POST /product — Create a product
   Required: name
   Optional: number, costExcludingVatCurrency, priceExcludingVatCurrency, vatType ({"id": N})
   NOTE: vatType.id must be an integer. GET /ledger/vatType to find valid IDs. Common: id=3 for 25% MVA (outgoing)
 
 POST /project — Create a project
-  Required: name, projectManager ({"id": N}), isInternal (true/false)
-  Optional: customer ({"id": N}), startDate, endDate, number, description
+  Required: name, projectManager ({"id": N}), isInternal (true/false), startDate (YYYY-MM-DD)
+  Optional: customer ({"id": N}), endDate, number, description
   NOTE: projectManager must reference an employee ID
+  NOTE: startDate IS required — use today's date if not specified in the task
 
 POST /department — Create a department
   Required: name, departmentNumber
@@ -72,6 +80,7 @@ POST /order — Create an order
 PUT /order/{id}/:invoice — Convert order to invoice
   Pass invoiceDate and invoiceDueDate as QUERY PARAMETERS in the URL:
   PUT /order/123/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15
+  Alternative URL format if /:invoice gives 404: PUT /order/invoice/{id}?invoiceDate=...&invoiceDueDate=...
   NOTE: Do NOT put these in the JSON body — they MUST be query params.
   You can also add sendToCustomer=true as query param to send it immediately.
 
@@ -82,12 +91,32 @@ PUT /invoice/{id}/:send — Send an existing invoice
 POST /invoice — Create an invoice directly
   Required: invoiceDate (YYYY-MM-DD), invoiceDueDate (YYYY-MM-DD), orders (array of {"id": N})
 
+PUT /invoice/{id}/:createPayment — Register payment on an invoice
+  EXACT endpoint: PUT /invoice/123/:createPayment  (NOT /:payment — that gives 500)
+  Pass as query params: paymentDate (YYYY-MM-DD), paymentTypeId (integer), paidAmount (number), paidAmountCurrency (number)
+  Example: PUT /invoice/123/:createPayment?paymentDate=2026-01-20&paymentTypeId=ID&paidAmount=11750&paidAmountCurrency=11750
+
+  FOR paymentTypeId: GET /ledger/paymentTypeCategory first, then extract a valid payment type ID.
+  If that returns 404, try hardcoding paymentTypeId=1 or paymentTypeId=2 (common defaults).
+  DO NOT use paymentTypeId=0 — it will cause a 500 error.
+
+  IMPORTANT: paidAmount must be the TOTAL amount INCLUDING VAT (not the ex-VAT amount from the prompt).
+  If task says "9400 NOK excl VAT" and product has 25% MVA, the invoice total = 11750 NOK. Pay 11750.
+  Use the "amount" field from the invoice creation response, not the amount from the task prompt.
+
+INVOICE PREREQUISITES:
+  Before creating an invoice, the company needs a bank account number.
+  If invoice creation fails with "bankkontonummer", you need to:
+  1. PUT /company with bankAccountNumber set (e.g. "12345678901")
+  Or try: GET /company to find company id, then PUT /company/{id} with bankAccountNumber
+
 GET/POST/PUT/DELETE /travelExpense — Travel expense reports
   Required for POST: employee ({"id": N}), title, startDate, endDate
 
 GET /ledger/account — Query chart of accounts
 GET /ledger/posting — Query ledger postings
 GET/POST/DELETE /ledger/voucher — Manage vouchers
+GET /ledger/paymentTypeCategory — List payment type categories (try this for finding paymentTypeId)
 
 REFERENCING PREVIOUS RESULTS:
 Use "{result_N_id}" to reference the ID from the Nth call's response (0-indexed).
@@ -120,11 +149,11 @@ Pattern 3 — Create project (requires customer + employee):
   {"method": "POST", "path": "/department", "body": {"name": "General", "departmentNumber": 1}, "description": "Create department"},
   {"method": "POST", "path": "/customer", "body": {"name": "Acme Corp", "email": "acme@example.org", "isCustomer": true}, "description": "Create customer"},
   {"method": "POST", "path": "/employee", "body": {"firstName": "Ola", "lastName": "Nordmann", "email": "ola@example.org", "userType": "STANDARD", "department": {"id": "{result_0_id}"}}, "description": "Create project manager", "depends_on": 0},
-  {"method": "POST", "path": "/project", "body": {"name": "Project X", "projectManager": {"id": "{prev_id}"}, "customer": {"id": "{result_1_id}"}, "isInternal": false}, "description": "Create project", "depends_on": 2}
+  {"method": "POST", "path": "/project", "body": {"name": "Project X", "projectManager": {"id": "{prev_id}"}, "customer": {"id": "{result_1_id}"}, "isInternal": false, "startDate": "2026-03-20"}, "description": "Create project", "depends_on": 2}
 ]
 ```
 
-Pattern 4 — Create and invoice an order:
+Pattern 4 — Create and invoice an order (bank account setup is auto-injected, so indices start at 0 for YOUR calls):
 ```json
 [
   {"method": "POST", "path": "/department", "body": {"name": "General", "departmentNumber": 1}, "description": "Create department"},
@@ -133,6 +162,30 @@ Pattern 4 — Create and invoice an order:
   {"method": "POST", "path": "/product", "body": {"name": "Service", "priceExcludingVatCurrency": 10000}, "description": "Create product"},
   {"method": "POST", "path": "/order", "body": {"customer": {"id": "{result_2_id}"}, "deliveryDate": "2026-01-15", "orderDate": "2026-01-15", "orderLines": [{"product": {"id": "{result_3_id}"}, "count": 1}]}, "description": "Create order"},
   {"method": "PUT", "path": "/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15&sendToCustomer=true", "body": {}, "description": "Convert order to invoice and send", "depends_on": 4}
+]
+```
+NOTE: Bank account setup is handled automatically. Do NOT include bank account calls in your plan.
+
+Pattern 5 — Create invoice + register payment (bank account is auto-injected):
+```json
+[
+  {"method": "POST", "path": "/department", "body": {"name": "General", "departmentNumber": 1}, "description": "Create department"},
+  {"method": "POST", "path": "/employee", "body": {"firstName": "Admin", "lastName": "User", "email": "admin@example.org", "userType": "STANDARD", "department": {"id": "{prev_id}"}}, "description": "Create employee", "depends_on": 0},
+  {"method": "POST", "path": "/customer", "body": {"name": "Client AS", "email": "client@example.org", "isCustomer": true, "organizationNumber": "123456789"}, "description": "Create customer"},
+  {"method": "POST", "path": "/product", "body": {"name": "Service", "priceExcludingVatCurrency": 10000}, "description": "Create product"},
+  {"method": "POST", "path": "/order", "body": {"customer": {"id": "{result_2_id}"}, "deliveryDate": "2026-01-15", "orderDate": "2026-01-15", "orderLines": [{"product": {"id": "{result_3_id}"}, "count": 1}]}, "description": "Create order"},
+  {"method": "PUT", "path": "/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15", "body": {}, "description": "Convert order to invoice", "depends_on": 4},
+  {"method": "PUT", "path": "/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=12500&paidAmountCurrency=12500", "body": {}, "description": "Register full payment (amount = total incl VAT)", "depends_on": 5}
+]
+```
+NOTE: Bank account setup is auto-injected. Do NOT include bank account calls.
+NOTE: paidAmount must be the invoice total INCLUDING VAT. Calculate: excl_vat * 1.25 for 25% MVA.
+NOTE: Use paymentTypeId=1 as default. If it fails, the fix round will try alternatives.
+
+Pattern 6 — Register a supplier:
+```json
+[
+  {"method": "POST", "path": "/supplier", "body": {"name": "Acme Supplier AS", "email": "faktura@acme.no", "organizationNumber": "123456789"}, "description": "Register supplier"}
 ]
 ```
 
@@ -231,6 +284,16 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
             body_str = _replace_result_refs(body_str)
             body = json.loads(body_str)
 
+        # Validate: skip calls with unresolved placeholders
+        unresolved = re.findall(r'\{(?:prev_id|result_\d+_id)\}', path)
+        if body:
+            unresolved += re.findall(r'\{(?:prev_id|result_\d+_id)\}', json.dumps(body))
+        if unresolved:
+            print(f"  [{i}] {method} {path} — {desc}")
+            print(f"    SKIP: unresolved refs {unresolved}")
+            results.append({"error": f"Unresolved references: {unresolved}", "id": None})
+            continue
+
         url = f"{base_url}{path}"
         print(f"  [{i}] {method} {path} — {desc}")
 
@@ -250,20 +313,21 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
 
             if resp.status_code in (200, 201):
                 data = resp.json()
-                # Extract ID from response — handle both single and list responses
-                value = data.get("value", data)
-                if isinstance(value, dict):
+                # Extract ID from response — handle single value, wrapped list, etc.
+                if "value" in data and isinstance(data["value"], dict):
+                    # Single entity: {"value": {"id": 123, ...}}
+                    value = data["value"]
                     result_id = value.get("id")
-                elif isinstance(value, list):
-                    # List response (from GET) — no single ID
-                    result_id = None
                 elif "values" in data:
-                    # Wrapped list: {"values": [...]}
-                    values = data["values"]
-                    result_id = values[0].get("id") if values else None
+                    # List response: {"fullResultSize": N, "values": [...]}
+                    values_list = data["values"]
                     value = data
+                    result_id = values_list[0].get("id") if values_list else None
+                    if values_list:
+                        print(f"    (list: {len(values_list)} results, first id={result_id})")
                 else:
-                    result_id = None
+                    value = data
+                    result_id = data.get("id") if isinstance(data, dict) else None
                 results.append({"status": resp.status_code, "id": result_id, "data": value})
                 print(f"    OK ({resp.status_code}), id={result_id}")
             else:
@@ -279,26 +343,102 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
 
 
 def parse_llm_plan(response: str) -> list:
-    """Extract JSON array of API calls from LLM response."""
-    # Try to find JSON array in the response
-    # Look for ```json blocks first
-    json_match = re.search(r'```(?:json)?\s*\n?(\[[\s\S]*?\])\s*\n?```', response)
-    if json_match:
+    """Extract JSON array of API calls from LLM response. Prefers last valid block."""
+    # Try ALL ```json blocks, prefer the last valid one (LLM often self-corrects)
+    json_blocks = re.findall(r'```(?:json)?\s*\n?(\[[\s\S]*?\])\s*\n?```', response)
+    for block in reversed(json_blocks):
         try:
-            return json.loads(json_match.group(1))
+            return json.loads(block)
         except json.JSONDecodeError:
-            pass
+            continue
 
-    # Try to find raw JSON array
-    json_match = re.search(r'\[[\s\S]*\]', response)
-    if json_match:
+    # Fallback: find all JSON arrays, prefer the last valid one
+    arrays = re.findall(r'\[[\s\S]*?\]', response)
+    for arr in reversed(arrays):
         try:
-            return json.loads(json_match.group(0))
+            parsed = json.loads(arr)
+            if isinstance(parsed, list) and parsed:
+                return parsed
         except json.JSONDecodeError:
-            pass
+            continue
 
     print(f"  Failed to parse LLM response as JSON")
     return []
+
+
+def _shift_plan_refs(plan: list, offset: int) -> list:
+    """Shift all depends_on and {result_N_id} references by offset."""
+    import copy
+    shifted = copy.deepcopy(plan)
+    for call in shifted:
+        # Shift depends_on
+        if call.get("depends_on") is not None:
+            dep = call["depends_on"]
+            if isinstance(dep, int):
+                call["depends_on"] = dep + offset
+            elif isinstance(dep, list):
+                call["depends_on"] = [d + offset for d in dep]
+
+        # Shift {result_N_id} in path and body
+        def shift_refs(text):
+            return re.sub(
+                r'\{result_(\d+)_id\}',
+                lambda m: f'{{result_{int(m.group(1)) + offset}_id}}',
+                text,
+            )
+
+        call["path"] = shift_refs(call.get("path", ""))
+        if call.get("body"):
+            body_str = json.dumps(call["body"])
+            call["body"] = json.loads(shift_refs(body_str))
+    return shifted
+
+
+def _is_invoice_task(prompt: str) -> bool:
+    """Detect if this is an invoice/payment task (not just a mention of 'faktura' in an email)."""
+    p = prompt.lower()
+    # Supplier/vendor tasks are NOT invoice tasks even if email contains "faktura"
+    supplier_keywords = ["supplier", "leverandør", "lieferant", "fournisseur", "proveedor",
+                         "fornecedor", "leverandor"]
+    if any(kw in p for kw in supplier_keywords):
+        return False
+    # Check for actual invoice action words (not just the word in an email address)
+    invoice_action = [
+        "faktura ", "fakturaen", "send faktura", "opprett faktura",
+        "invoice ", "create invoice", "send invoice",
+        "rechnung ", "erstellen sie eine rechnung", "senden sie eine rechnung",
+        "factura ", "facture ",
+        "zahlung", "betaling", "payment", "paiement", "pago",
+    ]
+    return any(kw in p for kw in invoice_action)
+
+
+def inject_prerequisites(plan: list, prompt: str) -> list:
+    """Inject known prerequisite API calls that the LLM often forgets."""
+    if not plan:
+        return plan
+
+    # Invoice tasks need company bank account
+    if _is_invoice_task(prompt):
+        bank_setup = [
+            {
+                "method": "GET",
+                "path": "/company/1",
+                "body": None,
+                "description": "[AUTO] Get company info",
+            },
+            {
+                "method": "PUT",
+                "path": "/company/1",
+                "body": {"id": 1, "bankAccountNumber": "12345678903"},
+                "description": "[AUTO] Set company bank account",
+            },
+        ]
+        shifted_plan = _shift_plan_refs(plan, offset=2)
+        print(f"  [AUTO] Injecting bank account setup (2 calls prepended)")
+        return bank_setup + shifted_plan
+
+    return plan
 
 
 def solve_task(prompt: str, files: list, base_url: str, session_token: str) -> dict:
@@ -344,6 +484,8 @@ Return ONLY a JSON array of Tripletex API calls. No explanation. Example format:
         plan = parse_llm_plan(llm_response)
         log.add_llm_call("retry", retry_prompt, llm_response)
 
+    # Inject prerequisites for known task types
+    plan = inject_prerequisites(plan, prompt)
     log.set_plan(plan)
     print(f"  Plan: {len(plan)} API calls")
 
@@ -395,10 +537,17 @@ Common issues:
 - Employee requires: firstName, lastName, email, userType ("STANDARD"/"ADMINISTRATOR"), department ({{"id": N}})
 - If department is needed, create one first: POST /department with name and departmentNumber
 - startDate goes on /employee/employment, NOT on /employee
+- Project requires startDate (YYYY-MM-DD) — use today's date if not specified
 - References use {{"id": N}} format where N is the integer ID from a previous response
+- "Det finnes allerede en bruker med denne e-postadressen" = email already exists. GET /employee?email=X to find their ID.
+- If GET returns a list, the ID is in values[0].id — use that integer directly.
+- If PUT /order/ID/:invoice returns 404, try PUT /order/:invoice/ID or POST /invoice with orders: [{{"id": ORDER_ID}}]
+- "bankkontonummer" error = company needs bank account. PUT /company with bankAccountNumber (e.g. "12345678901")
+- For payment registration: first GET /ledger/paymentType to find valid IDs, then PUT /invoice/ID/:createPayment?paymentDate=...&paymentTypeId=ID&paidAmount=...
+- paymentTypeId=0 is INVALID — you must look up the real ID from /ledger/paymentType
 
-Provide a COMPLETE corrected JSON array of ALL calls needed (including ones that already succeeded if they're prerequisites).
-The previous results may have created some entities — use their IDs if available.
+Provide a COMPLETE corrected JSON array of ONLY the calls that still need to succeed.
+DO NOT repeat calls that already returned 200/201 — those entities exist and their IDs are in the results above.
 Return [] if the task is already complete."""
 
         print(f"  Asking LLM to fix (round {round_num + 2})...")
