@@ -29,7 +29,9 @@ IMPORTANT RULES:
 - Dates must be in ISO format: "YYYY-MM-DD"
 - References to other objects use nested {"id": N} format, e.g. "employee": {"id": 123}
 - Some operations require creating prerequisites first (e.g., customer before invoice)
-- The sandbox starts EMPTY — you must create all prerequisite entities from scratch
+- The sandbox may have PRE-EXISTING entities (employees, products with specific numbers)
+- If POST fails with "already exists" error, GET the existing entity and use its ID
+- Always create departments (they're usually missing) but employees/products may exist
 
 ENDPOINTS AND REQUIRED FIELDS:
 
