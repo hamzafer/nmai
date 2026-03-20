@@ -91,24 +91,20 @@ PUT /invoice/{id}/:send — Send an existing invoice
 POST /invoice — Create an invoice directly
   Required: invoiceDate (YYYY-MM-DD), invoiceDueDate (YYYY-MM-DD), orders (array of {"id": N})
 
-PUT /invoice/{id}/:createPayment — Register payment on an invoice
-  EXACT endpoint: PUT /invoice/123/:createPayment  (NOT /:payment — that gives 500)
-  Pass as query params: paymentDate (YYYY-MM-DD), paymentTypeId (integer), paidAmount (number), paidAmountCurrency (number)
-  Example: PUT /invoice/123/:createPayment?paymentDate=2026-01-20&paymentTypeId=ID&paidAmount=11750&paidAmountCurrency=11750
+POST /invoice/{id}/payment — Register payment on an invoice (NOT PUT, use POST)
+  Alternative paths to try (in order of preference):
+  1. PUT /invoice/{id}/:createPayment?paymentDate=...&paymentTypeId=...&paidAmount=...
+  2. POST /invoice/{id}/payment with JSON body {"paymentDate": "...", "paymentTypeId": N, "paidAmount": N}
+  3. POST /payment with JSON body {"invoice": {"id": N}, "paymentDate": "...", "paymentTypeId": N, "amount": N}
 
-  FOR paymentTypeId: GET /ledger/paymentTypeCategory first, then extract a valid payment type ID.
-  If that returns 404, try hardcoding paymentTypeId=1 or paymentTypeId=2 (common defaults).
-  DO NOT use paymentTypeId=0 — it will cause a 500 error.
+  Use approach 1 first. If it returns 404, the fix round should try approach 2 or 3.
+
+  FOR paymentTypeId: Try paymentTypeId=1 first. If that fails with 500, try 2, 3, etc.
+  DO NOT use paymentTypeId=0.
 
   IMPORTANT: paidAmount must be the TOTAL amount INCLUDING VAT (not the ex-VAT amount from the prompt).
   If task says "9400 NOK excl VAT" and product has 25% MVA, the invoice total = 11750 NOK. Pay 11750.
   Use the "amount" field from the invoice creation response, not the amount from the task prompt.
-
-INVOICE PREREQUISITES:
-  Before creating an invoice, the company needs a bank account number.
-  If invoice creation fails with "bankkontonummer", you need to:
-  1. PUT /company with bankAccountNumber set (e.g. "12345678901")
-  Or try: GET /company to find company id, then PUT /company/{id} with bankAccountNumber
 
 GET/POST/PUT/DELETE /travelExpense — Travel expense reports
   Required for POST: employee ({"id": N}), title, startDate, endDate
@@ -153,7 +149,7 @@ Pattern 3 — Create project (requires customer + employee):
 ]
 ```
 
-Pattern 4 — Create and invoice an order (bank account setup is auto-injected, so indices start at 0 for YOUR calls):
+Pattern 4 — Create and invoice an order:
 ```json
 [
   {"method": "POST", "path": "/department", "body": {"name": "General", "departmentNumber": 1}, "description": "Create department"},
@@ -164,9 +160,9 @@ Pattern 4 — Create and invoice an order (bank account setup is auto-injected, 
   {"method": "PUT", "path": "/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15&sendToCustomer=true", "body": {}, "description": "Convert order to invoice and send", "depends_on": 4}
 ]
 ```
-NOTE: Bank account setup is handled automatically. Do NOT include bank account calls in your plan.
+NOTE: No bank account setup needed — invoice works through the competition proxy.
 
-Pattern 5 — Create invoice + register payment (bank account is auto-injected):
+Pattern 5 — Create invoice + register payment:
 ```json
 [
   {"method": "POST", "path": "/department", "body": {"name": "General", "departmentNumber": 1}, "description": "Create department"},
@@ -178,7 +174,7 @@ Pattern 5 — Create invoice + register payment (bank account is auto-injected):
   {"method": "PUT", "path": "/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=12500&paidAmountCurrency=12500", "body": {}, "description": "Register full payment (amount = total incl VAT)", "depends_on": 5}
 ]
 ```
-NOTE: Bank account setup is auto-injected. Do NOT include bank account calls.
+NOTE: No bank account setup needed — invoice creation works through the competition proxy.
 NOTE: paidAmount must be the invoice total INCLUDING VAT. Calculate: excl_vat * 1.25 for 25% MVA.
 NOTE: Use paymentTypeId=1 as default. If it fails, the fix round will try alternatives.
 
@@ -418,26 +414,8 @@ def inject_prerequisites(plan: list, prompt: str) -> list:
     if not plan:
         return plan
 
-    # Invoice tasks need company bank account
-    if _is_invoice_task(prompt):
-        bank_setup = [
-            {
-                "method": "GET",
-                "path": "/company/1",
-                "body": None,
-                "description": "[AUTO] Get company info",
-            },
-            {
-                "method": "PUT",
-                "path": "/company/1",
-                "body": {"id": 1, "bankAccountNumber": "12345678903"},
-                "description": "[AUTO] Set company bank account",
-            },
-        ]
-        shifted_plan = _shift_plan_refs(plan, offset=2)
-        print(f"  [AUTO] Injecting bank account setup (2 calls prepended)")
-        return bank_setup + shifted_plan
-
+    # NOTE: Bank account injection removed — invoice works without it through the proxy.
+    # The GET /company and PUT /company endpoints return 404/405 through the proxy anyway.
     return plan
 
 
@@ -542,7 +520,7 @@ Common issues:
 - "Det finnes allerede en bruker med denne e-postadressen" = email already exists. GET /employee?email=X to find their ID.
 - If GET returns a list, the ID is in values[0].id — use that integer directly.
 - If PUT /order/ID/:invoice returns 404, try PUT /order/:invoice/ID or POST /invoice with orders: [{{"id": ORDER_ID}}]
-- "bankkontonummer" error = company needs bank account. PUT /company with bankAccountNumber (e.g. "12345678901")
+- If PUT /invoice/{id}/:createPayment returns 404, try POST approach or different path
 - For payment registration: first GET /ledger/paymentType to find valid IDs, then PUT /invoice/ID/:createPayment?paymentDate=...&paymentTypeId=ID&paidAmount=...
 - paymentTypeId=0 is INVALID — you must look up the real ID from /ledger/paymentType
 
