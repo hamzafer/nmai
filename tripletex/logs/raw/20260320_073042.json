@@ -1,0 +1,8 @@
+{
+  "prompt": "Erstellen Sie das Produkt \"Datenberatung\" mit der Produktnummer 7855. Der Preis beträgt 41550 NOK ohne MwSt., mit dem Standardsatz von 25 %.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "NgntwzBa944uM6SC6Ug01sUsyUx-nTLi3n--rSTLNOE"
+  }
+}

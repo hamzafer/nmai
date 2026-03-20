@@ -1,0 +1,8 @@
+{
+  "prompt": "Ejecute la nómina de Fernando Sánchez (fernando.sanchez@example.org) para este mes. El salario base es de 42350 NOK. Añada una bonificación única de 12850 NOK además del salario base.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "anmO5QJloYSKw26HIkuDsdh44fhYPqoHwdCVyNwo8sc"
+  }
+}

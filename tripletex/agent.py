@@ -111,6 +111,16 @@ POST /payment — Register payment on an invoice
 GET/POST/PUT/DELETE /travelExpense — Travel expense reports
   Required for POST: employee ({"id": N}), title, startDate, endDate
 
+GET /salary/type — List salary types (needed for payroll)
+  Returns list of salary types with IDs. Use these IDs in payslip specifications.
+
+POST /salary/payslip — Create/run payroll for an employee
+  Body includes employee reference, date, year, month, and payslipSpecifications array.
+  Each specification needs: salaryType ({"id": N}), rate, count, amount.
+  First GET /salary/type to find valid salary type IDs.
+
+GET /salary/payslip — Query existing payslips
+
 GET /ledger/account — Query chart of accounts
 GET /ledger/posting — Query ledger postings
 GET/POST/DELETE /ledger/voucher — Manage vouchers
