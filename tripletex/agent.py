@@ -130,6 +130,21 @@ POST /payment — Register payment on an invoice
   If task says "9400 NOK excl VAT" and product has 25% MVA, invoice total = 11750 NOK. Pay 11750.
   Use the "amount" field from the invoice creation response.
 
+POST /activity — Create an activity for time tracking
+  Required: name, activityType ("PROJECT_GENERAL_ACTIVITY" or "TASK")
+  NOTE: activityType is REQUIRED — cannot be null.
+
+POST /project/{projectId}/projectActivity — Link an activity to a project
+  Required: activity ({"id": N})
+  NOTE: The projectId goes in the URL path, not the body.
+
+POST /timesheet/entry — Log hours
+  Required: employee ({"id": N}), project ({"id": N}), activity ({"id": N}), date (YYYY-MM-DD), hours (number)
+  Optional: comment, hourlyRate
+
+PUT /project/{id}/:createInvoice — Generate invoice from project hours
+  Pass invoiceDate as query param: PUT /project/123/:createInvoice?invoiceDate=2026-01-15
+
 GET/POST/PUT/DELETE /travelExpense — Travel expense reports
   Required for POST: employee ({"id": N}), title, startDate, endDate
 
