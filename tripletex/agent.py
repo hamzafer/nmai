@@ -61,8 +61,10 @@ POST /product — Create a product
   Required: name
   Optional: number, costExcludingVatCurrency, priceExcludingVatCurrency, vatType ({"id": N})
   NOTE: vatType.id must be an integer. GET /ledger/vatType to find valid IDs. Common: id=3 for 25% MVA (outgoing)
-  NOTE: If product number already exists ("Produktnummeret er i bruk"), GET /product?number=NNNNN to find it.
-  The search param is "number" not "productNumber".
+  NOTE: If product number already exists ("Produktnummeret er i bruk"):
+  1. Try GET /product?number=NNNNN&fields=id to find existing product
+  2. If GET returns 404, retry POST /product WITHOUT the "number" field (omit it, let Tripletex auto-assign)
+  The key data is the name and price, not the product number.
 
 POST /project — Create a project
   Required: name, projectManager ({"id": N}), isInternal (true/false), startDate (YYYY-MM-DD)
@@ -630,7 +632,7 @@ Common issues:
 - Project requires startDate (YYYY-MM-DD) — use today's date if not specified
 - References use {{"id": N}} format where N is the integer ID from a previous response
 - "Det finnes allerede en bruker med denne e-postadressen" = email already exists. GET /employee?email=X to find their ID.
-- "Produktnummeret NNNN er i bruk" = product number exists. GET /product?number=NNNN to find it. Use its ID.
+- "Produktnummeret NNNN er i bruk" = product number exists. Try GET /product?number=NNNN to find it. If GET returns 404, retry POST /product WITHOUT the number field.
 - If GET returns a list, the ID is in values[0].id — use that integer directly.
 - If PUT /order/ID/:invoice returns 404, try PUT /order/:invoice/ID or POST /invoice with orders: [{{"id": ORDER_ID}}]
 - If PUT /invoice/{id}/:createPayment returns 404, try these alternatives:
