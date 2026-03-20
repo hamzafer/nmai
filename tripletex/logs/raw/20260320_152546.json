@@ -1,0 +1,8 @@
+{
+  "prompt": "Opprett tre avdelingar i Tripletex: \"Salg\", \"IT\" og \"HR\".",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "http://localhost:9999/v2",
+    "session_token": "mock-token"
+  }
+}

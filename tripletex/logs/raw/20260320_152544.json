@@ -1,0 +1,8 @@
+{
+  "prompt": "Register the supplier Nordic Parts AS with organization number 555666777. Email: faktura@nordicparts.no.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "http://localhost:9999/v2",
+    "session_token": "mock-token"
+  }
+}

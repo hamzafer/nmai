@@ -1,0 +1,8 @@
+{
+  "prompt": "Create the project \"Alpha Launch\" linked to the customer Beta Corp (org no. 123456789). The project manager is Ola Test (ola.test@example.org).",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "http://localhost:9999/v2",
+    "session_token": "mock-token"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "prompt": "The customer PayTest Ltd (org no. 111222333) has an outstanding invoice for 5000 NOK excluding VAT for \"Services\". Register full payment on this invoice.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "http://localhost:9999/v2",
+    "session_token": "mock-token"
+  }
+}

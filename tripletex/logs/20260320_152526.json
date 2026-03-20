@@ -1,0 +1,175 @@
+{
+  "timestamp": "2026-03-20T15:25:26.103313+00:00",
+  "prompt": "Opprett og send ein faktura til kunden TestKunde AS (org.nr 999888777) på 10000 kr eksklusiv MVA. Fakturaen gjeld Konsultering.",
+  "files": [],
+  "base_url": "http://localhost:9999/v2",
+  "llm_calls": [
+    {
+      "role": "plan",
+      "prompt_length": 408,
+      "prompt": "Task prompt:\nOpprett og send ein faktura til kunden TestKunde AS (org.nr 999888777) på 10000 kr eksklusiv MVA. Fakturaen gjeld Konsultering.\n\nBase URL: http://localhost:9999/v2\nAuthentication: Basic Auth with username \"0\" and the session token.\n\nAnalyze this task and provide the JSON array of API calls needed to complete it.\nRemember: be precise and minimal. Each unnecessary call or error hurts the score.",
+      "response_length": 2153,
+      "response": "I'll analyze this task step by step:\n\n1. **Create a customer** (TestKunde AS, org.nr 999888777)\n2. **Create a product** (Konsultering, 10000 kr excl. VAT)\n3. **Create an order** with the customer and product\n4. **Convert order to invoice and send** it\n\nI need a department and employee first (sandbox starts empty), but let me be minimal. I need to check if there's already an employee. Since sandbox may have pre-existing employees, let me try to find one first, but to be safe and minimal, I'll create what's needed.\n\nLet me calculate dates: I'll use today-ish dates for the competition context (2025-01-01 area, but I'll use a safe future date).\n\n```json\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\"name\": \"General\", \"departmentNumber\": 1},\n    \"description\": \"Create department\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\"firstName\": \"Admin\", \"lastName\": \"Bruker\", \"email\": \"admin@test.no\", \"userType\": \"STANDARD\", \"department\": {\"id\": \"{prev_id}\"}},\n    \"description\": \"Create employee\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/customer\",\n    \"body\": {\"name\": \"TestKunde AS\", \"email\": \"faktura@testkunde.no\", \"isCustomer\": true, \"organizationNumber\": \"999888777\"},\n    \"description\": \"Create customer TestKunde AS\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/product\",\n    \"body\": {\"name\": \"Konsultering\", \"priceExcludingVatCurrency\": 10000},\n    \"description\": \"Create product Konsultering at 10000 kr excl VAT\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/order\",\n    \"body\": {\n      \"customer\": {\"id\": \"{result_2_id}\"},\n      \"deliveryDate\": \"2025-06-20\",\n      \"orderDate\": \"2025-06-20\",\n      \"orderLines\": [\n        {\n          \"product\": {\"id\": \"{result_3_id}\"},\n          \"count\": 1,\n          \"unitPriceExcludingVatCurrency\": 10000\n        }\n      ]\n    },\n    \"description\": \"Create order for TestKunde AS\"\n  },\n  {\n    \"method\": \"PUT\",\n    \"path\": \"/order/{prev_id}/:invoice?invoiceDate=2025-06-20&invoiceDueDate=2025-07-20&sendToCustomer=true\",\n    \"body\": {},\n    \"description\": \"Convert order to invoice and send to customer\",\n    \"depends_on\": 4\n  }\n]\n```"
+    }
+  ],
+  "plan": [
+    {
+      "method": "POST",
+      "path": "/department",
+      "body": {
+        "name": "General",
+        "departmentNumber": 1
+      },
+      "description": "Create department"
+    },
+    {
+      "method": "POST",
+      "path": "/employee",
+      "body": {
+        "firstName": "Admin",
+        "lastName": "Bruker",
+        "email": "admin@test.no",
+        "userType": "STANDARD",
+        "department": {
+          "id": "{prev_id}"
+        }
+      },
+      "description": "Create employee",
+      "depends_on": 0
+    },
+    {
+      "method": "POST",
+      "path": "/customer",
+      "body": {
+        "name": "TestKunde AS",
+        "email": "faktura@testkunde.no",
+        "isCustomer": true,
+        "organizationNumber": "999888777"
+      },
+      "description": "Create customer TestKunde AS"
+    },
+    {
+      "method": "POST",
+      "path": "/product",
+      "body": {
+        "name": "Konsultering",
+        "priceExcludingVatCurrency": 10000
+      },
+      "description": "Create product Konsultering at 10000 kr excl VAT"
+    },
+    {
+      "method": "POST",
+      "path": "/order",
+      "body": {
+        "customer": {
+          "id": "{result_2_id}"
+        },
+        "deliveryDate": "2025-06-20",
+        "orderDate": "2025-06-20",
+        "orderLines": [
+          {
+            "product": {
+              "id": "{result_3_id}"
+            },
+            "count": 1,
+            "unitPriceExcludingVatCurrency": 10000
+          }
+        ]
+      },
+      "description": "Create order for TestKunde AS"
+    },
+    {
+      "method": "PUT",
+      "path": "/order/{prev_id}/:invoice?invoiceDate=2025-06-20&invoiceDueDate=2025-07-20&sendToCustomer=true",
+      "body": {},
+      "description": "Convert order to invoice and send to customer",
+      "depends_on": 4
+    }
+  ],
+  "api_calls": [
+    {
+      "status": 201,
+      "id": 1,
+      "data": {
+        "name": "General",
+        "departmentNumber": 1,
+        "id": 1
+      }
+    },
+    {
+      "status": 201,
+      "id": 2,
+      "data": {
+        "firstName": "Admin",
+        "lastName": "Bruker",
+        "email": "admin@test.no",
+        "userType": "STANDARD",
+        "department": {
+          "id": 1
+        },
+        "id": 2
+      }
+    },
+    {
+      "status": 201,
+      "id": 3,
+      "data": {
+        "name": "TestKunde AS",
+        "email": "faktura@testkunde.no",
+        "isCustomer": true,
+        "organizationNumber": "999888777",
+        "id": 3
+      }
+    },
+    {
+      "status": 201,
+      "id": 4,
+      "data": {
+        "name": "Konsultering",
+        "priceExcludingVatCurrency": 10000,
+        "id": 4
+      }
+    },
+    {
+      "status": 201,
+      "id": 5,
+      "data": {
+        "customer": {
+          "id": 3
+        },
+        "deliveryDate": "2025-06-20",
+        "orderDate": "2025-06-20",
+        "orderLines": [
+          {
+            "product": {
+              "id": 4
+            },
+            "count": 1,
+            "unitPriceExcludingVatCurrency": 10000
+          }
+        ],
+        "id": 5
+      }
+    },
+    {
+      "status": 200,
+      "id": 6,
+      "data": {
+        "id": 6,
+        "invoiceDate": "2025-06-20",
+        "invoiceDueDate": "2025-07-20",
+        "amount": 12500.0,
+        "amountCurrency": 12500.0,
+        "amountExcludingVat": 10000.0,
+        "orders": [
+          {
+            "id": 5
+          }
+        ]
+      }
+    }
+  ],
+  "fix_plan": [],
+  "fix_api_calls": [],
+  "duration_s": 10.99
+}

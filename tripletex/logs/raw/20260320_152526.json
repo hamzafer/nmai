@@ -1,0 +1,8 @@
+{
+  "prompt": "Opprett og send ein faktura til kunden TestKunde AS (org.nr 999888777) på 10000 kr eksklusiv MVA. Fakturaen gjeld Konsultering.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "http://localhost:9999/v2",
+    "session_token": "mock-token"
+  }
+}

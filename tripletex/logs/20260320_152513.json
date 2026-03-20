@@ -1,0 +1,94 @@
+{
+  "timestamp": "2026-03-20T15:25:13.098478+00:00",
+  "prompt": "We have a new employee named Per Hansen, born 15. March 1990. Please create them as an employee with email per.hansen@example.org and start date 1. June 2026.",
+  "files": [],
+  "base_url": "http://localhost:9999/v2",
+  "llm_calls": [
+    {
+      "role": "plan",
+      "prompt_length": 439,
+      "prompt": "Task prompt:\nWe have a new employee named Per Hansen, born 15. March 1990. Please create them as an employee with email per.hansen@example.org and start date 1. June 2026.\n\nBase URL: http://localhost:9999/v2\nAuthentication: Basic Auth with username \"0\" and the session token.\n\nAnalyze this task and provide the JSON array of API calls needed to complete it.\nRemember: be precise and minimal. Each unnecessary call or error hurts the score.",
+      "response_length": 983,
+      "response": "Looking at this task, I need to:\n\n1. Create a department (required for employee creation)\n2. Create the employee Per Hansen\n3. Create an employment record with start date June 1, 2026\n\n```json\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\n      \"name\": \"General\",\n      \"departmentNumber\": 1\n    },\n    \"description\": \"Create department (required for employee)\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\n      \"firstName\": \"Per\",\n      \"lastName\": \"Hansen\",\n      \"email\": \"per.hansen@example.org\",\n      \"dateOfBirth\": \"1990-03-15\",\n      \"userType\": \"STANDARD\",\n      \"department\": {\"id\": \"{prev_id}\"}\n    },\n    \"description\": \"Create employee Per Hansen\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee/employment\",\n    \"body\": {\n      \"employee\": {\"id\": \"{prev_id}\"},\n      \"startDate\": \"2026-06-01\"\n    },\n    \"description\": \"Set employment start date to June 1, 2026\",\n    \"depends_on\": 1\n  }\n]\n```"
+    }
+  ],
+  "plan": [
+    {
+      "method": "POST",
+      "path": "/department",
+      "body": {
+        "name": "General",
+        "departmentNumber": 1
+      },
+      "description": "Create department (required for employee)"
+    },
+    {
+      "method": "POST",
+      "path": "/employee",
+      "body": {
+        "firstName": "Per",
+        "lastName": "Hansen",
+        "email": "per.hansen@example.org",
+        "dateOfBirth": "1990-03-15",
+        "userType": "STANDARD",
+        "department": {
+          "id": "{prev_id}"
+        }
+      },
+      "description": "Create employee Per Hansen",
+      "depends_on": 0
+    },
+    {
+      "method": "POST",
+      "path": "/employee/employment",
+      "body": {
+        "employee": {
+          "id": "{prev_id}"
+        },
+        "startDate": "2026-06-01"
+      },
+      "description": "Set employment start date to June 1, 2026",
+      "depends_on": 1
+    }
+  ],
+  "api_calls": [
+    {
+      "status": 201,
+      "id": 1,
+      "data": {
+        "name": "General",
+        "departmentNumber": 1,
+        "id": 1
+      }
+    },
+    {
+      "status": 201,
+      "id": 2,
+      "data": {
+        "firstName": "Per",
+        "lastName": "Hansen",
+        "email": "per.hansen@example.org",
+        "dateOfBirth": "1990-03-15",
+        "userType": "STANDARD",
+        "department": {
+          "id": 1
+        },
+        "id": 2
+      }
+    },
+    {
+      "status": 201,
+      "id": 3,
+      "data": {
+        "employee": {
+          "id": 2
+        },
+        "startDate": "2026-06-01",
+        "id": 3
+      }
+    }
+  ],
+  "fix_plan": [],
+  "fix_api_calls": [],
+  "duration_s": 5.67
+}

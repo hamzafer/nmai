@@ -1,0 +1,8 @@
+{
+  "prompt": "Opprett en ansatt med navn Ola Nordmann, e-post ola@nordmann.no.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "http://localhost:9999/v2",
+    "session_token": "mock-token"
+  }
+}

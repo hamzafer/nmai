@@ -1,0 +1,8 @@
+{
+  "prompt": "We have a new employee named Per Hansen, born 15. March 1990. Please create them as an employee with email per.hansen@example.org and start date 1. June 2026.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "http://localhost:9999/v2",
+    "session_token": "mock-token"
+  }
+}

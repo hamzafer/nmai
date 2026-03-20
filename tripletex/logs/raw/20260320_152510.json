@@ -1,0 +1,8 @@
+{
+  "prompt": "Create a customer named Acme Corp with email acme@corp.com.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "http://localhost:9999/v2",
+    "session_token": "mock-token"
+  }
+}
