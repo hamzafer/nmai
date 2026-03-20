@@ -1,0 +1,8 @@
+{
+  "prompt": "Créez une facture pour le client Prairie SARL (nº org. 834343096) avec trois lignes de produit : Rapport d'analyse (1282) à 7500 NOK avec 25 % TVA, Maintenance (1722) à 11550 NOK avec 15 % TVA (alimentaire), et Session de formation (6929) à 10500 NOK avec 0 % TVA (exonéré).",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "17JUC4QOnzdkwuxvvZP1dudVAm27MMo_171OGv7ksdg"
+  }
+}

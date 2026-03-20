@@ -69,14 +69,20 @@ GET /ledger/account — Query chart of accounts
   Search by number: GET /ledger/account?number=7140
   Returns account details needed for voucher postings.
 
-POST /product — Create a product
+GET /product — Search for existing products
+  Search by number: GET /product?number=1282 (returns list with product if found)
+  Search by name: GET /product?name=ProductName
+  Products often PRE-EXIST in the sandbox. ALWAYS try GET first before POST.
+
+POST /product — Create a product (only if GET finds nothing)
   Required: name
-  Optional: number, costExcludingVatCurrency, priceExcludingVatCurrency, vatType ({"id": N})
-  NOTE: vatType.id must be an integer. GET /ledger/vatType to find valid IDs. Common: id=3 for 25% MVA (outgoing)
-  NOTE: If product number already exists ("Produktnummeret er i bruk"):
-  1. Try GET /product?number=NNNNN&fields=id to find existing product
-  2. If GET returns 404, retry POST /product WITHOUT the "number" field (omit it, let Tripletex auto-assign)
-  The key data is the name and price, not the product number.
+  Optional: costExcludingVatCurrency, priceExcludingVatCurrency, vatType ({"id": N})
+  IMPORTANT: Do NOT include the "number" field — product names AND numbers often already exist.
+  NOTE: vatType.id must be an integer. Common: id=3 for 25% MVA (outgoing). If unsure, omit vatType.
+
+  STRATEGY for products: If the task specifies product numbers, use GET /product?number=NNNN to find them.
+  Use the IDs from the GET responses directly in the order. Do NOT also POST — it will fail.
+  Only POST /product if GET returns empty values array.
 
 POST /project — Create a project
   Required: name, projectManager ({"id": N}), isInternal (true/false), startDate (YYYY-MM-DD)

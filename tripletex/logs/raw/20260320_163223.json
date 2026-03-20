@@ -1,0 +1,8 @@
+{
+  "prompt": "Log 29 hours for Ella Williams (ella.williams@example.org) on the activity \"Testing\" in the project \"Platform Integration\" for Windmill Ltd (org no. 839360274). Hourly rate: 1350 NOK/h. Generate a project invoice to the customer based on the logged hours.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "WqN8oDn40GcUgN-HQzysW_xQSBW5KEWPK9rlWZFiaZ8"
+  }
+}
