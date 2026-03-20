@@ -1,0 +1,8 @@
+{
+  "prompt": "Hemos recibido la factura INV-2026-1625 del proveedor Viento SL (org. nº 822028365) por 21300 NOK con IVA incluido. El importe corresponde a servicios de oficina (cuenta 7140). Registre la factura del proveedor con el IVA soportado correcto (25 %).",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "vJ4QnXcqgkR17KR4WDIVygGVaDpE0tyG9FP_Ftp3RJ8"
+  }
+}

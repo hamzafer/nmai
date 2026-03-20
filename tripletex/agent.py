@@ -57,6 +57,16 @@ POST /supplier — Create a supplier (use this instead of /customer with isSuppl
   use POST /supplier — NOT POST /customer with isSupplier=true.
   The /customer endpoint auto-sets isCustomer=true even if you pass isCustomer=false.
 
+POST /supplierInvoice — Register a supplier/vendor invoice (incoming invoice)
+  Required: supplier ({"id": N}), invoiceNumber (string), invoiceDate (YYYY-MM-DD), invoiceDueDate (YYYY-MM-DD)
+  NOTE: Use "invoiceDueDate" NOT "dueDate" — "dueDate" doesn't exist on this endpoint.
+  Optional: currency, amount, amountCurrency
+  For posting with accounts/VAT, use voucher lines after creating the invoice.
+
+GET /ledger/account — Query chart of accounts
+  Search by number: GET /ledger/account?number=7140
+  Returns account details needed for voucher postings.
+
 POST /product — Create a product
   Required: name
   Optional: number, costExcludingVatCurrency, priceExcludingVatCurrency, vatType ({"id": N})
