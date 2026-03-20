@@ -6,10 +6,16 @@ Usage:
     # Then expose via: npx cloudflared tunnel --url http://localhost:8000
 """
 
+import json
 import os
+from datetime import datetime, timezone
+from pathlib import Path
 from fastapi import FastAPI, Request, Header
 from fastapi.responses import JSONResponse
 from .agent import solve_task
+
+RAW_LOGS_DIR = Path(__file__).parent / "logs" / "raw"
+RAW_LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Tripletex AI Agent")
 
@@ -27,6 +33,12 @@ async def solve(request: Request, authorization: str = Header(default=None)):
 
     body = await request.json()
 
+    # Save raw request immediately (before any processing)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    raw_path = RAW_LOGS_DIR / f"{ts}.json"
+    raw_path.write_text(json.dumps(body, indent=2, default=str, ensure_ascii=False))
+    print(f"  Raw request saved: {raw_path}")
+
     prompt = body.get("prompt", "")
     files = body.get("files", [])
     creds = body.get("tripletex_credentials", {})
@@ -39,8 +51,12 @@ async def solve(request: Request, authorization: str = Header(default=None)):
             status_code=400,
         )
 
-    result = solve_task(prompt, files, base_url, session_token)
-    return JSONResponse(result)
+    try:
+        result = solve_task(prompt, files, base_url, session_token)
+        return JSONResponse(result)
+    except Exception as e:
+        print(f"  ERROR in solve_task: {e}")
+        return JSONResponse({"status": "completed", "error": str(e)})
 
 
 @app.get("/health")
