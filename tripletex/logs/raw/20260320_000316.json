@@ -1,0 +1,8 @@
+{
+  "prompt": "Opprett en ansatt med navn Test Person, test@example.org",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "http://localhost:8000/mock",
+    "session_token": "test-token"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "prompt": "Opprett og send ein faktura til kunden Bølgekraft AS (org.nr 892362416) på 34150 kr eksklusiv MVA. Fakturaen gjeld Vedlikehald.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "TjSVhFqiXe1TEBUkKxey4lvNexW7hrgM9g9BhGnTrVc"
+  }
+}

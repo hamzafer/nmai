@@ -1,0 +1,122 @@
+{
+  "timestamp": "2026-03-20T00:30:51.400772+00:00",
+  "prompt": "Créez le projet \"Intégration Montagne\" lié au client Montagne SARL (nº org. 960461940). Le chef de projet est Nathan Martin (nathan.martin@example.org).",
+  "files": [],
+  "base_url": "http://localhost:9999/v2",
+  "llm_calls": [
+    {
+      "role": "plan",
+      "prompt_length": 433,
+      "prompt": "Task prompt:\nCréez le projet \"Intégration Montagne\" lié au client Montagne SARL (nº org. 960461940). Le chef de projet est Nathan Martin (nathan.martin@example.org).\n\nBase URL: http://localhost:9999/v2\nAuthentication: Basic Auth with username \"0\" and the session token.\n\nAnalyze this task and provide the JSON array of API calls needed to complete it.\nRemember: be precise and minimal. Each unnecessary call or error hurts the score.",
+      "response_length": 1173,
+      "response": "\n\nLooking at this task, I need to:\n\n1. Create a department (prerequisite for employee)\n2. Create the customer \"Montagne SARL\" with org number 960461940\n3. Create the employee \"Nathan Martin\" (project manager)\n4. Create the project \"Intégration Montagne\" linking the customer and project manager\n\n```json\n[\n  {\"method\": \"POST\", \"path\": \"/department\", \"body\": {\"name\": \"General\", \"departmentNumber\": 1}, \"description\": \"Create department\"},\n  {\"method\": \"POST\", \"path\": \"/customer\", \"body\": {\"name\": \"Montagne SARL\", \"email\": \"montagne@example.org\", \"isCustomer\": true, \"organizationNumber\": \"960461940\"}, \"description\": \"Create customer Montagne SARL\"},\n  {\"method\": \"POST\", \"path\": \"/employee\", \"body\": {\"firstName\": \"Nathan\", \"lastName\": \"Martin\", \"email\": \"nathan.martin@example.org\", \"userType\": \"STANDARD\", \"department\": {\"id\": \"{result_0_id}\"}}, \"description\": \"Create employee Nathan Martin\", \"depends_on\": 0},\n  {\"method\": \"POST\", \"path\": \"/project\", \"body\": {\"name\": \"Intégration Montagne\", \"projectManager\": {\"id\": \"{prev_id}\"}, \"customer\": {\"id\": \"{result_1_id}\"}, \"isInternal\": false}, \"description\": \"Create project Intégration Montagne\", \"depends_on\": 2}\n]\n```"
+    }
+  ],
+  "plan": [
+    {
+      "method": "POST",
+      "path": "/department",
+      "body": {
+        "name": "General",
+        "departmentNumber": 1
+      },
+      "description": "Create department"
+    },
+    {
+      "method": "POST",
+      "path": "/customer",
+      "body": {
+        "name": "Montagne SARL",
+        "email": "montagne@example.org",
+        "isCustomer": true,
+        "organizationNumber": "960461940"
+      },
+      "description": "Create customer Montagne SARL"
+    },
+    {
+      "method": "POST",
+      "path": "/employee",
+      "body": {
+        "firstName": "Nathan",
+        "lastName": "Martin",
+        "email": "nathan.martin@example.org",
+        "userType": "STANDARD",
+        "department": {
+          "id": "{result_0_id}"
+        }
+      },
+      "description": "Create employee Nathan Martin",
+      "depends_on": 0
+    },
+    {
+      "method": "POST",
+      "path": "/project",
+      "body": {
+        "name": "Intégration Montagne",
+        "projectManager": {
+          "id": "{prev_id}"
+        },
+        "customer": {
+          "id": "{result_1_id}"
+        },
+        "isInternal": false
+      },
+      "description": "Create project Intégration Montagne",
+      "depends_on": 2
+    }
+  ],
+  "api_calls": [
+    {
+      "status": 201,
+      "id": 1,
+      "data": {
+        "name": "General",
+        "departmentNumber": 1,
+        "id": 1
+      }
+    },
+    {
+      "status": 201,
+      "id": 2,
+      "data": {
+        "name": "Montagne SARL",
+        "email": "montagne@example.org",
+        "isCustomer": true,
+        "organizationNumber": "960461940",
+        "id": 2
+      }
+    },
+    {
+      "status": 201,
+      "id": 3,
+      "data": {
+        "firstName": "Nathan",
+        "lastName": "Martin",
+        "email": "nathan.martin@example.org",
+        "userType": "STANDARD",
+        "department": {
+          "id": 1
+        },
+        "id": 3
+      }
+    },
+    {
+      "status": 201,
+      "id": 4,
+      "data": {
+        "name": "Intégration Montagne",
+        "projectManager": {
+          "id": 3
+        },
+        "customer": {
+          "id": 2
+        },
+        "isInternal": false,
+        "id": 4
+      }
+    }
+  ],
+  "fix_plan": [],
+  "fix_api_calls": [],
+  "duration_s": 6.12
+}

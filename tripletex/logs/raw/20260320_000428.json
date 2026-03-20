@@ -1,0 +1,8 @@
+{
+  "prompt": "Opprett en ansatt med navn Ola Nordmann, ola@example.org. Han skal være kontoadministrator.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://nursery-truth-update-laser.trycloudflare.com/mock",
+    "session_token": "test-token"
+  }
+}

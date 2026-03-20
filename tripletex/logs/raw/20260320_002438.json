@@ -1,0 +1,8 @@
+{
+  "prompt": "Opprett en ansatt med navn Kari Hansen, e-post kari@hansen.no. Hun skal være kontoadministrator.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "http://localhost:9999/v2",
+    "session_token": "mock-token"
+  }
+}

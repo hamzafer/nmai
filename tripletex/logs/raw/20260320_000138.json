@@ -1,0 +1,8 @@
+{
+  "prompt": "Opprett en ansatt med navn Test Person, test@example.org",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy.ainm.no/v2",
+    "session_token": "fake-token-for-testing"
+  }
+}

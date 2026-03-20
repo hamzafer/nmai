@@ -1,0 +1,8 @@
+{
+  "prompt": "Créez le projet \"Intégration Montagne\" lié au client Montagne SARL (nº org. 960461940). Le chef de projet est Nathan Martin (nathan.martin@example.org).",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "hFSqCVLrIvr9LdLXUg4C2bIQ_FfaPdloMrGp5zA7HwM"
+  }
+}

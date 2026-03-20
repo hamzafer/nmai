@@ -1,0 +1,8 @@
+{
+  "prompt": "Tenemos un nuevo empleado llamado Sofía Rodríguez, nacido el 25. August 2000. Créelo como empleado con el correo sofia.rodriguez@example.org y fecha de inicio 20. April 2026.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "9UR4UQ7lXb50jo2V-VQsNquSUowxPmjq3aMhX0OUe7w"
+  }
+}

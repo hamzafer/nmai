@@ -1,0 +1,94 @@
+{
+  "timestamp": "2026-03-20T00:30:57.534177+00:00",
+  "prompt": "We have a new employee named Edward Harris, born 9. November 1987. Please create them as an employee with email edward.harris@example.org and start date 6. July 2026.",
+  "files": [],
+  "base_url": "http://localhost:9999/v2",
+  "llm_calls": [
+    {
+      "role": "plan",
+      "prompt_length": 447,
+      "prompt": "Task prompt:\nWe have a new employee named Edward Harris, born 9. November 1987. Please create them as an employee with email edward.harris@example.org and start date 6. July 2026.\n\nBase URL: http://localhost:9999/v2\nAuthentication: Basic Auth with username \"0\" and the session token.\n\nAnalyze this task and provide the JSON array of API calls needed to complete it.\nRemember: be precise and minimal. Each unnecessary call or error hurts the score.",
+      "response_length": 596,
+      "response": "```json\n[\n  {\"method\": \"POST\", \"path\": \"/department\", \"body\": {\"name\": \"General\", \"departmentNumber\": 1}, \"description\": \"Create department\"},\n  {\"method\": \"POST\", \"path\": \"/employee\", \"body\": {\"firstName\": \"Edward\", \"lastName\": \"Harris\", \"email\": \"edward.harris@example.org\", \"dateOfBirth\": \"1987-11-09\", \"userType\": \"STANDARD\", \"department\": {\"id\": \"{prev_id}\"}}, \"description\": \"Create employee\", \"depends_on\": 0},\n  {\"method\": \"POST\", \"path\": \"/employee/employment\", \"body\": {\"employee\": {\"id\": \"{prev_id}\"}, \"startDate\": \"2026-07-06\"}, \"description\": \"Set start date\", \"depends_on\": 1}\n]\n```"
+    }
+  ],
+  "plan": [
+    {
+      "method": "POST",
+      "path": "/department",
+      "body": {
+        "name": "General",
+        "departmentNumber": 1
+      },
+      "description": "Create department"
+    },
+    {
+      "method": "POST",
+      "path": "/employee",
+      "body": {
+        "firstName": "Edward",
+        "lastName": "Harris",
+        "email": "edward.harris@example.org",
+        "dateOfBirth": "1987-11-09",
+        "userType": "STANDARD",
+        "department": {
+          "id": "{prev_id}"
+        }
+      },
+      "description": "Create employee",
+      "depends_on": 0
+    },
+    {
+      "method": "POST",
+      "path": "/employee/employment",
+      "body": {
+        "employee": {
+          "id": "{prev_id}"
+        },
+        "startDate": "2026-07-06"
+      },
+      "description": "Set start date",
+      "depends_on": 1
+    }
+  ],
+  "api_calls": [
+    {
+      "status": 201,
+      "id": 5,
+      "data": {
+        "name": "General",
+        "departmentNumber": 1,
+        "id": 5
+      }
+    },
+    {
+      "status": 201,
+      "id": 6,
+      "data": {
+        "firstName": "Edward",
+        "lastName": "Harris",
+        "email": "edward.harris@example.org",
+        "dateOfBirth": "1987-11-09",
+        "userType": "STANDARD",
+        "department": {
+          "id": 5
+        },
+        "id": 6
+      }
+    },
+    {
+      "status": 201,
+      "id": 7,
+      "data": {
+        "employee": {
+          "id": 6
+        },
+        "startDate": "2026-07-06",
+        "id": 7
+      }
+    }
+  ],
+  "fix_plan": [],
+  "fix_api_calls": [],
+  "duration_s": 3.81
+}
