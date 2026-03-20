@@ -23,7 +23,7 @@ MOCK_PORT = 9999
 
 
 class MockTripletexHandler(BaseHTTPRequestHandler):
-    """Mimics Tripletex v2 API responses."""
+    """Mimics Tripletex v2 API responses, including action URLs."""
 
     def _read_body(self):
         length = int(self.headers.get("Content-Length", 0))
@@ -35,15 +35,41 @@ class MockTripletexHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
 
-    def _entity_and_id(self):
-        # /v2/employee/123 → ("employee", 123)
-        parts = self.path.lstrip("/").replace("v2/", "").split("?")[0].split("/")
+    def _parse_path(self):
+        """Parse /v2/entity/id/:action?params into components."""
+        from urllib.parse import urlparse, parse_qs
+        parsed = urlparse(self.path)
+        parts = parsed.path.lstrip("/").replace("v2/", "").split("/")
+        query = parse_qs(parsed.query)
+
         entity = parts[0] if parts else ""
-        eid = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
-        return entity, eid
+        eid = None
+        action = None
+
+        if len(parts) >= 2:
+            if parts[1].isdigit():
+                eid = int(parts[1])
+                if len(parts) >= 3 and parts[2].startswith(":"):
+                    action = parts[2]  # e.g. ":invoice", ":createPayment"
+            elif parts[1].startswith(":"):
+                action = parts[1]
+
+        return entity, eid, action, {k: v[0] for k, v in query.items()}
 
     def do_GET(self):
-        entity, eid = self._entity_and_id()
+        entity, eid, action, params = self._parse_path()
+
+        # Handle sub-entities like ledger/vatType
+        full_path = self.path.split("?")[0].lstrip("/").replace("v2/", "")
+        if "/" in full_path and not any(p.isdigit() for p in full_path.split("/")):
+            # e.g. ledger/vatType, ledger/account, salary/type
+            sub_entity = full_path.replace("/", "_")
+            items = MOCK_DB.get(sub_entity, [
+                {"id": 3, "number": 3, "name": "25% MVA outgoing", "percentage": 25},
+            ])
+            self._respond(200, {"fullResultSize": len(items), "values": items})
+            return
+
         items = MOCK_DB.get(entity, [])
         if eid is not None:
             item = next((e for e in items if e["id"] == eid), None)
@@ -52,31 +78,87 @@ class MockTripletexHandler(BaseHTTPRequestHandler):
             else:
                 self._respond(404, {"error": "not found"})
         else:
-            self._respond(200, {"fullResultSize": len(items), "values": items})
+            # Filter by query params if provided
+            filtered = items
+            for key, val in params.items():
+                if key in ("fields", "count", "from"):
+                    continue
+                filtered = [e for e in filtered if str(e.get(key, "")) == val]
+            self._respond(200, {"fullResultSize": len(filtered), "values": filtered})
 
     def do_POST(self):
         global MOCK_ID
-        entity, _ = self._entity_and_id()
+        entity, _, action, params = self._parse_path()
         body = self._read_body()
         MOCK_ID += 1
         body["id"] = MOCK_ID
+
+        # Handle sub-entities
+        full_path = self.path.split("?")[0].lstrip("/").replace("v2/", "")
+        if "/" in full_path:
+            sub_entity = full_path.split("?")[0].replace("/", "_")
+            MOCK_DB.setdefault(sub_entity, []).append(body)
+            self._respond(201, {"value": body})
+            return
+
         MOCK_DB.setdefault(entity, []).append(body)
         self._respond(201, {"value": body})
 
     def do_PUT(self):
-        entity, _ = self._entity_and_id()
+        global MOCK_ID
+        entity, eid, action, params = self._parse_path()
+
+        # Handle action URLs: /order/5/:invoice, /invoice/5/:createPayment
+        if action and eid:
+            if action == ":invoice":
+                # Convert order to invoice
+                MOCK_ID += 1
+                invoice_data = {
+                    "id": MOCK_ID,
+                    "invoiceDate": params.get("invoiceDate", "2026-01-01"),
+                    "invoiceDueDate": params.get("invoiceDueDate", "2026-02-01"),
+                    "amount": 12500.0,
+                    "amountCurrency": 12500.0,
+                    "amountExcludingVat": 10000.0,
+                    "orders": [{"id": eid}],
+                }
+                MOCK_DB.setdefault("invoice", []).append(invoice_data)
+                self._respond(200, {"value": invoice_data})
+                return
+            elif action in (":createPayment", ":pay"):
+                # Register payment
+                MOCK_ID += 1
+                payment_data = {
+                    "id": MOCK_ID,
+                    "paymentDate": params.get("paymentDate", "2026-01-20"),
+                    "paidAmount": float(params.get("paidAmount", 0)),
+                }
+                MOCK_DB.setdefault("payment", []).append(payment_data)
+                self._respond(200, {"value": payment_data})
+                return
+            elif action == ":send":
+                self._respond(200, {"value": {"id": eid, "sent": True}})
+                return
+
+        # Regular PUT
         body = self._read_body()
-        eid = body.get("id")
+        eid_from_body = body.get("id", eid)
         items = MOCK_DB.get(entity, [])
         for i, item in enumerate(items):
-            if item["id"] == eid:
+            if item["id"] == eid_from_body:
                 items[i] = {**item, **body}
                 self._respond(200, {"value": items[i]})
                 return
+        # If not found but has an id, just accept it (company updates etc)
+        if eid_from_body:
+            body["id"] = eid_from_body
+            MOCK_DB.setdefault(entity, []).append(body)
+            self._respond(200, {"value": body})
+            return
         self._respond(404, {"error": "not found"})
 
     def do_DELETE(self):
-        entity, eid = self._entity_and_id()
+        entity, eid, _, _ = self._parse_path()
         if eid and entity in MOCK_DB:
             MOCK_DB[entity] = [e for e in MOCK_DB[entity] if e["id"] != eid]
             self._respond(200, {"status": "deleted"})
@@ -116,6 +198,54 @@ TESTS = [
             "Acme" in e.get("name", "")
             for e in MOCK_DB.get("customer", [])
         ),
+    },
+    {
+        "name": "Create employee with start date",
+        "prompt": "We have a new employee named Per Hansen, born 15. March 1990. Please create them as an employee with email per.hansen@example.org and start date 1. June 2026.",
+        "files": [],
+        "check": lambda: (
+            any(e.get("firstName") == "Per" for e in MOCK_DB.get("employee", []))
+            and len(MOCK_DB.get("employee_employment", [])) > 0
+        ),
+    },
+    {
+        "name": "Create project",
+        "prompt": "Create the project \"Alpha Launch\" linked to the customer Beta Corp (org no. 123456789). The project manager is Ola Test (ola.test@example.org).",
+        "files": [],
+        "check": lambda: any(
+            "Alpha" in p.get("name", "")
+            for p in MOCK_DB.get("project", [])
+        ),
+    },
+    {
+        "name": "Create and send invoice",
+        "prompt": "Opprett og send ein faktura til kunden TestKunde AS (org.nr 999888777) på 10000 kr eksklusiv MVA. Fakturaen gjeld Konsultering.",
+        "files": [],
+        "check": lambda: len(MOCK_DB.get("invoice", [])) > 0,
+    },
+    {
+        "name": "Invoice with full payment",
+        "prompt": "The customer PayTest Ltd (org no. 111222333) has an outstanding invoice for 5000 NOK excluding VAT for \"Services\". Register full payment on this invoice.",
+        "files": [],
+        "check": lambda: (
+            len(MOCK_DB.get("invoice", [])) > 0
+            and len(MOCK_DB.get("payment", [])) > 0
+        ),
+    },
+    {
+        "name": "Register supplier",
+        "prompt": "Register the supplier Nordic Parts AS with organization number 555666777. Email: faktura@nordicparts.no.",
+        "files": [],
+        "check": lambda: (
+            any("Nordic" in e.get("name", "") for e in MOCK_DB.get("supplier", []))
+            or any("Nordic" in e.get("name", "") for e in MOCK_DB.get("customer", []))
+        ),
+    },
+    {
+        "name": "Create three departments",
+        "prompt": "Opprett tre avdelingar i Tripletex: \"Salg\", \"IT\" og \"HR\".",
+        "files": [],
+        "check": lambda: len(MOCK_DB.get("department", [])) >= 3,
     },
 ]
 
