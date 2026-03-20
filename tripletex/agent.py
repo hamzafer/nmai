@@ -12,6 +12,7 @@ import requests
 from pathlib import Path
 
 from .llm import call_claude
+from .logger import SubmissionLog
 
 # System prompt for the LLM
 SYSTEM_PROMPT = """You are an expert accounting agent that completes tasks in the Tripletex accounting system.
@@ -25,53 +26,130 @@ IMPORTANT RULES:
 - All API calls go through the provided base_url (proxy)
 - POST/PUT requests use JSON body
 - List responses are wrapped: {"fullResultSize": N, "values": [...]}
-- Use ?fields=* to see all available fields
-- Use ?fields=id,firstName,lastName for specific fields
+- Dates must be in ISO format: "YYYY-MM-DD"
+- References to other objects use nested {"id": N} format, e.g. "employee": {"id": 123}
 - Some operations require creating prerequisites first (e.g., customer before invoice)
+- The sandbox starts EMPTY — you must create all prerequisite entities from scratch
 
-COMMON ENDPOINTS:
-- GET/POST /employee — Manage employees
-- GET/POST /customer — Manage customers
-- GET/POST /product — Manage products
-- GET/POST /invoice — Create and query invoices
-- GET/POST /order — Manage orders
-- GET/POST/PUT/DELETE /travelExpense — Travel expense reports
-- GET/POST /project — Manage projects
-- GET/POST /department — Manage departments
-- GET /ledger/account — Query chart of accounts
-- GET /ledger/posting — Query ledger postings
-- GET/POST/DELETE /ledger/voucher — Manage vouchers
+ENDPOINTS AND REQUIRED FIELDS:
 
-When you receive a task, respond with a JSON array of API calls to make, in order:
+POST /employee — Create an employee
+  Required: firstName, lastName, email, userType, department ({"id": N})
+  Optional: dateOfBirth (YYYY-MM-DD), phoneNumberMobile, phoneNumberHome, phoneNumberWork
+  IMPORTANT: userType is REQUIRED. Use "STANDARD" for normal employees.
+  IMPORTANT: department is REQUIRED. First create a department if none exist, or GET /department to find one.
+  NOTE: "startDate" does NOT exist on employee — use /employee/employment for that
+  NOTE: To set admin role, use "userType": "ADMINISTRATOR"
+  Valid userType values: "STANDARD", "EXTENDED", "ADMINISTRATOR"
+
+POST /employee/employment — Create employment record (for start date)
+  Required: employee ({"id": N}), startDate (YYYY-MM-DD)
+  Optional: endDate, employmentType, percentOfFullTimeEquivalent
+
+POST /customer — Create a customer
+  Required: name, email, isCustomer (must be true)
+  Optional: organizationNumber, phoneNumber, isSupplier
+
+POST /product — Create a product
+  Required: name
+  Optional: number, costExcludingVatCurrency, priceExcludingVatCurrency, vatType ({"id": N})
+  NOTE: vatType.id must be an integer. GET /ledger/vatType to find valid IDs. Common: id=3 for 25% MVA (outgoing)
+
+POST /project — Create a project
+  Required: name, projectManager ({"id": N}), isInternal (true/false)
+  Optional: customer ({"id": N}), startDate, endDate, number, description
+  NOTE: projectManager must reference an employee ID
+
+POST /department — Create a department
+  Required: name, departmentNumber
+  Optional: departmentManager ({"id": N})
+
+POST /order — Create an order
+  Required: customer ({"id": N}), deliveryDate (YYYY-MM-DD), orderDate (YYYY-MM-DD)
+  Optional: orderLines (array of {"product": {"id": N}, "count": N, "unitPriceExcludingVatCurrency": N})
+  NOTE: Do NOT use "receiver" — use "customer" for the customer reference
+
+PUT /order/{id}/:invoice — Convert order to invoice
+  Pass invoiceDate and invoiceDueDate as QUERY PARAMETERS in the URL:
+  PUT /order/123/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15
+  NOTE: Do NOT put these in the JSON body — they MUST be query params.
+  You can also add sendToCustomer=true as query param to send it immediately.
+
+PUT /invoice/{id}/:send — Send an existing invoice
+  Pass sendType as query param: PUT /invoice/123/:send?sendType=EMAIL
+  Use this AFTER creating an invoice if the task says to "send" it.
+
+POST /invoice — Create an invoice directly
+  Required: invoiceDate (YYYY-MM-DD), invoiceDueDate (YYYY-MM-DD), orders (array of {"id": N})
+
+GET/POST/PUT/DELETE /travelExpense — Travel expense reports
+  Required for POST: employee ({"id": N}), title, startDate, endDate
+
+GET /ledger/account — Query chart of accounts
+GET /ledger/posting — Query ledger postings
+GET/POST/DELETE /ledger/voucher — Manage vouchers
+
+REFERENCING PREVIOUS RESULTS:
+Use "{result_N_id}" to reference the ID from the Nth call's response (0-indexed).
+Example: after creating a customer in call 0, reference it as {"id": "{result_0_id}"} in call 1.
+
+The "depends_on" field (0-indexed integer) indicates which previous call's response ID to use for {prev_id} substitution.
+
+COMMON PATTERNS:
+
+Pattern 1 — Create employee with start date (requires department first):
 ```json
 [
-  {
-    "method": "POST",
-    "path": "/employee",
-    "body": {"firstName": "Ola", "lastName": "Nordmann", "email": "ola@example.org"},
-    "description": "Create employee Ola Nordmann"
-  },
-  {
-    "method": "PUT",
-    "path": "/employee/{prev_id}",
-    "body": {"id": "{prev_id}", "isAdministrator": true},
-    "description": "Set administrator role",
-    "depends_on": 0
-  }
+  {"method": "POST", "path": "/department", "body": {"name": "General", "departmentNumber": 1}, "description": "Create department"},
+  {"method": "POST", "path": "/employee", "body": {"firstName": "Ola", "lastName": "Nordmann", "email": "ola@example.org", "userType": "STANDARD", "department": {"id": "{prev_id}"}}, "description": "Create employee", "depends_on": 0},
+  {"method": "POST", "path": "/employee/employment", "body": {"employee": {"id": "{prev_id}"}, "startDate": "2026-01-01"}, "description": "Set start date", "depends_on": 1}
 ]
 ```
 
-Use "{prev_id}" to reference the ID from a previous call's response. The "depends_on" field (0-indexed) indicates which previous call's response ID to use.
+Pattern 2 — Create employee as admin:
+```json
+[
+  {"method": "POST", "path": "/department", "body": {"name": "General", "departmentNumber": 1}, "description": "Create department"},
+  {"method": "POST", "path": "/employee", "body": {"firstName": "Kari", "lastName": "Hansen", "email": "kari@example.org", "userType": "ADMINISTRATOR", "department": {"id": "{prev_id}"}}, "description": "Create admin employee", "depends_on": 0}
+]
+```
 
-If a task includes file attachments, I'll describe their contents. Use that information in your API calls.
+Pattern 3 — Create project (requires customer + employee):
+```json
+[
+  {"method": "POST", "path": "/department", "body": {"name": "General", "departmentNumber": 1}, "description": "Create department"},
+  {"method": "POST", "path": "/customer", "body": {"name": "Acme Corp", "email": "acme@example.org", "isCustomer": true}, "description": "Create customer"},
+  {"method": "POST", "path": "/employee", "body": {"firstName": "Ola", "lastName": "Nordmann", "email": "ola@example.org", "userType": "STANDARD", "department": {"id": "{result_0_id}"}}, "description": "Create project manager", "depends_on": 0},
+  {"method": "POST", "path": "/project", "body": {"name": "Project X", "projectManager": {"id": "{prev_id}"}, "customer": {"id": "{result_1_id}"}, "isInternal": false}, "description": "Create project", "depends_on": 2}
+]
+```
+
+Pattern 4 — Create and invoice an order:
+```json
+[
+  {"method": "POST", "path": "/department", "body": {"name": "General", "departmentNumber": 1}, "description": "Create department"},
+  {"method": "POST", "path": "/employee", "body": {"firstName": "Admin", "lastName": "User", "email": "admin@example.org", "userType": "STANDARD", "department": {"id": "{prev_id}"}}, "description": "Create employee", "depends_on": 0},
+  {"method": "POST", "path": "/customer", "body": {"name": "Acme AS", "email": "acme@example.org", "isCustomer": true, "organizationNumber": "123456789"}, "description": "Create customer"},
+  {"method": "POST", "path": "/product", "body": {"name": "Service", "priceExcludingVatCurrency": 10000}, "description": "Create product"},
+  {"method": "POST", "path": "/order", "body": {"customer": {"id": "{result_2_id}"}, "deliveryDate": "2026-01-15", "orderDate": "2026-01-15", "orderLines": [{"product": {"id": "{result_3_id}"}, "count": 1}]}, "description": "Create order"},
+  {"method": "PUT", "path": "/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15&sendToCustomer=true", "body": {}, "description": "Convert order to invoice and send", "depends_on": 4}
+]
+```
+
+RESPONSE FORMAT — return a JSON array of API calls. Use "depends_on" (0-indexed integer) for {prev_id} substitution. Use "{result_N_id}" to reference any previous call's ID.
+
+IMPORTANT NOTES:
+- GET list responses return {"fullResultSize": N, "values": [...]}. Extract the ID from values[0].id if needed.
+- For PUT /order/{id}/:invoice, pass invoiceDate and invoiceDueDate as QUERY PARAMS in the path, not in body.
+- If a task includes file attachments, I'll describe their contents.
 
 Think step by step about:
 1. What entity needs to be created/modified?
-2. What prerequisites are needed?
+2. What prerequisites need to be created first? (sandbox starts empty!)
 3. What's the correct order of API calls?
-4. What fields are required?
+4. What are the REQUIRED fields for each endpoint?
 
-Be precise and minimal — fewer API calls = better score.
+Be precise and minimal — fewer API calls = better score. Every 4xx error reduces your efficiency bonus.
 """
 
 
@@ -113,9 +191,14 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
         body = call.get("body")
         desc = call.get("description", "")
         depends_on = call.get("depends_on")
+        # Normalize depends_on: LLM may return a list like [0] instead of 0
+        if isinstance(depends_on, list):
+            depends_on = depends_on[0] if depends_on else None
+        if isinstance(depends_on, str) and depends_on.isdigit():
+            depends_on = int(depends_on)
 
-        # Replace {prev_id} references
-        if depends_on is not None and depends_on < len(results):
+        # Replace {prev_id} from depends_on
+        if isinstance(depends_on, int) and depends_on < len(results):
             prev_result = results[depends_on]
             prev_id = prev_result.get("id")
             if prev_id is not None:
@@ -124,6 +207,29 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                     body_str = json.dumps(body).replace('"{prev_id}"', str(prev_id))
                     body_str = body_str.replace("{prev_id}", str(prev_id))
                     body = json.loads(body_str)
+
+        # Replace {result_N_id} references to any previous result
+        def _replace_result_refs(text):
+            for match in re.finditer(r'\{result_(\d+)_id\}', text):
+                idx = int(match.group(1))
+                if idx < len(results) and results[idx].get("id") is not None:
+                    text = text.replace(match.group(0), str(results[idx]["id"]))
+            return text
+
+        path = _replace_result_refs(path)
+        if body:
+            body_str = json.dumps(body)
+            # Replace "{result_N_id}" (quoted string) with integer in JSON
+            body_str = re.sub(
+                r'"\{result_(\d+)_id\}"',
+                lambda m: str(results[int(m.group(1))]["id"])
+                if int(m.group(1)) < len(results) and results[int(m.group(1))].get("id")
+                else m.group(0),
+                body_str,
+            )
+            # Also replace unquoted {result_N_id} inside strings
+            body_str = _replace_result_refs(body_str)
+            body = json.loads(body_str)
 
         url = f"{base_url}{path}"
         print(f"  [{i}] {method} {path} — {desc}")
@@ -144,9 +250,20 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
 
             if resp.status_code in (200, 201):
                 data = resp.json()
-                # Extract ID from response
+                # Extract ID from response — handle both single and list responses
                 value = data.get("value", data)
-                result_id = value.get("id") if isinstance(value, dict) else None
+                if isinstance(value, dict):
+                    result_id = value.get("id")
+                elif isinstance(value, list):
+                    # List response (from GET) — no single ID
+                    result_id = None
+                elif "values" in data:
+                    # Wrapped list: {"values": [...]}
+                    values = data["values"]
+                    result_id = values[0].get("id") if values else None
+                    value = data
+                else:
+                    result_id = None
                 results.append({"status": resp.status_code, "id": result_id, "data": value})
                 print(f"    OK ({resp.status_code}), id={result_id}")
             else:
@@ -187,7 +304,11 @@ def parse_llm_plan(response: str) -> list:
 def solve_task(prompt: str, files: list, base_url: str, session_token: str) -> dict:
     """
     Main entry point: interpret the task prompt and execute API calls.
+    Runs up to 3 rounds: plan → execute → fix → execute → fix → execute.
     """
+    log = SubmissionLog()
+    log.set_request(prompt, files, base_url)
+
     print(f"\n=== Solving task ===")
     print(f"  Prompt: {prompt[:200]}...")
 
@@ -209,46 +330,95 @@ Remember: be precise and minimal. Each unnecessary call or error hurts the score
     print("  Calling Claude Opus for task plan...")
     llm_response = call_claude(full_prompt, system=SYSTEM_PROMPT)
     print(f"  LLM response length: {len(llm_response)} chars")
+    log.add_llm_call("plan", full_prompt, llm_response)
 
     # Parse the plan
     plan = parse_llm_plan(llm_response)
     if not plan:
         print("  No valid plan from LLM, trying to recover...")
-        # Try again with a simpler prompt
         retry_prompt = f"""The task is: {prompt}
 
 Return ONLY a JSON array of Tripletex API calls. No explanation. Example format:
 [{{"method": "POST", "path": "/employee", "body": {{"firstName": "Ola"}}, "description": "Create employee"}}]"""
         llm_response = call_claude(retry_prompt, system=SYSTEM_PROMPT)
         plan = parse_llm_plan(llm_response)
+        log.add_llm_call("retry", retry_prompt, llm_response)
 
+    log.set_plan(plan)
     print(f"  Plan: {len(plan)} API calls")
 
-    # Execute the plan
-    if plan:
-        results = execute_api_calls(plan, base_url, session_token)
+    # Execute with up to 3 rounds of fix attempts
+    all_plans = []
+    all_results = []
+    current_plan = plan
+    max_rounds = 3
+
+    for round_num in range(max_rounds):
+        if not current_plan:
+            break
+
+        round_label = "initial" if round_num == 0 else f"fix_{round_num}"
+        print(f"  --- Round {round_num + 1}/{max_rounds} ---")
+
+        results = execute_api_calls(current_plan, base_url, session_token)
+        all_plans.append(current_plan)
+        all_results.append(results)
+
+        if round_num == 0:
+            log.set_api_results(results)
+
         success = sum(1 for r in results if r.get("status") in (200, 201))
+        failed = [r for r in results if r.get("status") not in (200, 201, None) or r.get("error")]
         print(f"  Results: {success}/{len(results)} successful")
 
-        # If any calls failed, try to fix with LLM
-        failed = [r for r in results if r.get("error")]
-        if failed and len(plan) < 10:
-            print("  Some calls failed, asking LLM to fix...")
-            fix_prompt = f"""Original task: {prompt}
+        # All succeeded — done
+        if not failed:
+            print("  All calls successful!")
+            break
 
-The following API calls were made:
-{json.dumps(plan, indent=2)}
+        # Last round — no more retries
+        if round_num >= max_rounds - 1:
+            print("  Max retries reached.")
+            break
 
-These results came back:
-{json.dumps(results, indent=2)}
+        # Build fix prompt with full history
+        history = ""
+        for r, (p, res) in enumerate(zip(all_plans, all_results)):
+            history += f"\n--- Round {r + 1} ---\nCalls made:\n{json.dumps(p, indent=2)}\nResults:\n{json.dumps(res, indent=2)}\n"
 
-Some calls failed. Provide a corrected JSON array of ONLY the calls that need to be retried/fixed.
-Return [] if no fixes are needed."""
+        fix_prompt = f"""Original task: {prompt}
 
-            fix_response = call_claude(fix_prompt, system=SYSTEM_PROMPT)
-            fix_plan = parse_llm_plan(fix_response)
-            if fix_plan:
-                print(f"  Retrying {len(fix_plan)} fixed calls...")
-                execute_api_calls(fix_plan, base_url, session_token)
+{history}
 
+Some calls failed. The Tripletex error messages tell you exactly what's wrong.
+Common issues:
+- Employee requires: firstName, lastName, email, userType ("STANDARD"/"ADMINISTRATOR"), department ({{"id": N}})
+- If department is needed, create one first: POST /department with name and departmentNumber
+- startDate goes on /employee/employment, NOT on /employee
+- References use {{"id": N}} format where N is the integer ID from a previous response
+
+Provide a COMPLETE corrected JSON array of ALL calls needed (including ones that already succeeded if they're prerequisites).
+The previous results may have created some entities — use their IDs if available.
+Return [] if the task is already complete."""
+
+        print(f"  Asking LLM to fix (round {round_num + 2})...")
+        fix_response = call_claude(fix_prompt, system=SYSTEM_PROMPT)
+        fix_plan = parse_llm_plan(fix_response)
+        log.add_llm_call(f"fix_{round_num + 1}", fix_prompt, fix_response)
+
+        if not fix_plan:
+            print("  No fix plan returned.")
+            break
+
+        # Store fix info
+        if round_num == 0:
+            log.set_fix_plan(fix_plan)
+
+        current_plan = fix_plan
+
+    # Store final fix results if we had retries
+    if len(all_results) > 1:
+        log.set_fix_results(all_results[-1])
+
+    log.save()
     return {"status": "completed"}

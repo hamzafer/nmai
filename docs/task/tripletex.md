@@ -236,3 +236,25 @@ npx cloudflared tunnel --url http://localhost:8000
 
 # 4. Submit the tunnel URL at https://app.ainm.no/submit/tripletex
 ```
+
+Or one command: `./tripletex/launch.sh`
+
+### Local Testing
+
+Test the full agent flow against a mock Tripletex API without burning competition submissions:
+
+```bash
+# Terminal 1: Start the agent
+python -m tripletex
+
+# Terminal 2: Run tests
+python -m tripletex.test_local
+```
+
+This spins up a mock Tripletex API on port 9999, sends test tasks to the agent on port 8000, and verifies the agent creates the right entities. All logs are saved to `tripletex/logs/`.
+
+### Logs
+
+Every submission is logged to `tripletex/logs/`:
+- `logs/raw/` — raw incoming request body (for replay)
+- `logs/` — full trace: prompt, LLM calls, plan, API results, fix attempts, duration
