@@ -1,0 +1,251 @@
+{
+  "timestamp": "2026-03-20T18:02:24.399010+00:00",
+  "prompt": "Enregistrez une note de frais de déplacement pour Hugo Martin (hugo.martin@example.org) pour \"Conférence Stavanger\". Le voyage a duré 5 jours avec indemnités journalières (taux journalier 800 NOK). Dépenses : billet d'avion 7700 NOK et taxi 600 NOK.",
+  "files": [],
+  "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+  "llm_calls": [
+    {
+      "role": "plan",
+      "prompt_length": 549,
+      "prompt": "Task prompt:\nEnregistrez une note de frais de déplacement pour Hugo Martin (hugo.martin@example.org) pour \"Conférence Stavanger\". Le voyage a duré 5 jours avec indemnités journalières (taux journalier 800 NOK). Dépenses : billet d'avion 7700 NOK et taxi 600 NOK.\n\nBase URL: https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2\nAuthentication: Basic Auth with username \"0\" and the session token.\n\nAnalyze this task and provide the JSON array of API calls needed to complete it.\nRemember: be precise and minimal. Each unnecessary call or error hurts the score.",
+      "response_length": 2351,
+      "response": "I'll analyze this task step by step:\n\n1. **Create a department** (required for employee)\n2. **Create employee** Hugo Martin\n3. **Create a travel expense report** for \"Conférence Stavanger\"\n4. **Add per diem (daily allowance)** - 5 days × 800 NOK = 4000 NOK\n5. **Add flight expense** - 7700 NOK\n6. **Add taxi expense** - 600 NOK\n\nLet me look at the travel expense structure. I need to create the travel expense report first, then add cost lines/per diem lines.\n\n```json\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\n      \"name\": \"General\",\n      \"departmentNumber\": 1\n    },\n    \"description\": \"Create department\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\n      \"firstName\": \"Hugo\",\n      \"lastName\": \"Martin\",\n      \"email\": \"hugo.martin@example.org\",\n      \"userType\": \"STANDARD\",\n      \"department\": {\"id\": \"{prev_id}\"}\n    },\n    \"description\": \"Create employee Hugo Martin\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense\",\n    \"body\": {\n      \"employee\": {\"id\": \"{prev_id}\"},\n      \"title\": \"Conférence Stavanger\",\n      \"startDate\": \"2026-01-15\",\n      \"endDate\": \"2026-01-19\"\n    },\n    \"description\": \"Create travel expense report for 5 days\",\n    \"depends_on\": 1\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/perDiemCompensation\",\n    \"body\": {\n      \"travelExpense\": {\"id\": \"{prev_id}\"},\n      \"rateCategory\": {\"id\": 1},\n      \"countDays\": 5,\n      \"rateAmount\": 800,\n      \"amount\": 4000,\n      \"isDeductionForBreakfast\": false\n    },\n    \"description\": \"Add per diem allowance: 5 days × 800 NOK\",\n    \"depends_on\": 2\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/cost\",\n    \"body\": {\n      \"travelExpense\": {\"id\": \"{result_2_id}\"},\n      \"description\": \"Billet d'avion\",\n      \"rate\": 1,\n      \"count\": 1,\n      \"amount\": 7700,\n      \"costCategoryId\": 1,\n      \"date\": \"2026-01-15\",\n      \"rateCurrency\": 7700\n    },\n    \"description\": \"Add flight ticket expense 7700 NOK\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/cost\",\n    \"body\": {\n      \"travelExpense\": {\"id\": \"{result_2_id}\"},\n      \"description\": \"Taxi\",\n      \"rate\": 1,\n      \"count\": 1,\n      \"amount\": 600,\n      \"costCategoryId\": 2,\n      \"date\": \"2026-01-15\",\n      \"rateCurrency\": 600\n    },\n    \"description\": \"Add taxi expense 600 NOK\"\n  }\n]\n```"
+    },
+    {
+      "role": "fix_1",
+      "prompt_length": 5051,
+      "prompt": "Original task: Enregistrez une note de frais de déplacement pour Hugo Martin (hugo.martin@example.org) pour \"Conférence Stavanger\". Le voyage a duré 5 jours avec indemnités journalières (taux journalier 800 NOK). Dépenses : billet d'avion 7700 NOK et taxi 600 NOK.\n\n\n--- Round 1 ---\nCalls made:\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\n      \"name\": \"General\",\n      \"departmentNumber\": 1\n    },\n    \"description\": \"Create department\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\n      \"firstName\": \"Hugo\",\n      \"lastName\": \"Martin\",\n      \"email\": \"hugo.martin@example.org\",\n      \"userType\": \"STANDARD\",\n      \"department\": {\n        \"id\": \"{prev_id}\"\n      }\n    },\n    \"description\": \"Create employee Hugo Martin\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense\",\n    \"body\": {\n      \"employee\": {\n        \"id\": \"{prev_id}\"\n      },\n      \"title\": \"Conf\\u00e9rence Stavanger\",\n      \"startDate\": \"2026-01-15\",\n      \"endDate\": \"2026-01-19\"\n    },\n    \"description\": \"Create travel expense report for 5 days\",\n    \"depends_on\": 1\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/perDiemCompensation\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{prev_id}\"\n      },\n      \"rateCategory\": {\n        \"id\": 1\n      },\n      \"countDays\": 5,\n      \"rateAmount\": 800,\n      \"amount\": 4000,\n      \"isDeductionForBreakfast\": false\n    },\n    \"description\": \"Add per diem allowance: 5 days \\u00d7 800 NOK\",\n    \"depends_on\": 2\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/cost\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{result_2_id}\"\n      },\n      \"description\": \"Billet d'avion\",\n      \"rate\": 1,\n      \"count\": 1,\n      \"amount\": 7700,\n      \"costCategoryId\": 1,\n      \"date\": \"2026-01-15\",\n      \"rateCurrency\": 7700\n    },\n    \"description\": \"Add flight ticket expense 7700 NOK\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/cost\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{result_2_id}\"\n      },\n      \"description\": \"Taxi\",\n      \"rate\": 1,\n      \"count\": 1,\n      \"amount\": 600,\n      \"costCategoryId\": 2,\n      \"date\": \"2026-01-15\",\n      \"rateCurrency\": 600\n    },\n    \"description\": \"Add taxi expense 600 NOK\"\n  }\n]\nResults:\n[\n  {\n    \"status\": 201,\n    \"id\": 906257,\n    \"data\": {\n      \"id\": 906257,\n      \"version\": 0,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/department/906257\",\n      \"name\": \"General\",\n      \"departmentNumber\": \"1\",\n      \"departmentManager\": null,\n      \"displayName\": \"1 General\",\n      \"isInactive\": false,\n      \"businessActivityTypeId\": 0\n    }\n  },\n  {\n    \"status\": 422,\n    \"error\": \"{\\\"status\\\":422,\\\"code\\\":18000,\\\"message\\\":\\\"Validering feilet.\\\",\\\"link\\\":\\\"https://tripletex.no/v2-docs/\\\",\\\"developerMessage\\\":\\\"VALIDATION_ERROR\\\",\\\"validationMessages\\\":[{\\\"field\\\":\\\"email\\\",\\\"message\\\":\\\"Det finnes allerede en bruker med denne e-postadressen.\\\",\\\"path\\\":null,\\\"rootId\\\":null}],\\\"requestId\\\":\\\"fdcc375a-4e4a-4ee\"\n  },\n  {\n    \"error\": \"Unresolved references: ['{prev_id}']\",\n    \"id\": null\n  },\n  {\n    \"error\": \"Unresolved references: ['{prev_id}']\",\n    \"id\": null\n  },\n  {\n    \"error\": \"Unresolved references: ['{result_2_id}']\",\n    \"id\": null\n  },\n  {\n    \"error\": \"Unresolved references: ['{result_2_id}']\",\n    \"id\": null\n  }\n]\n\n\nSome calls failed. The Tripletex error messages tell you exactly what's wrong.\nCommon issues:\n- Employee requires: firstName, lastName, email, userType (\"STANDARD\"/\"ADMINISTRATOR\"), department ({\"id\": N})\n- If department is needed, create one first: POST /department with name and departmentNumber\n- startDate goes on /employee/employment, NOT on /employee\n- Project requires startDate (YYYY-MM-DD) — use today's date if not specified\n- References use {\"id\": N} format where N is the integer ID from a previous response\n- \"Det finnes allerede en bruker med denne e-postadressen\" = email already exists. GET /employee?email=X to find their ID.\n- \"Produktnummeret NNNN er i bruk\" = product number exists. Try GET /product?number=NNNN to find it. If GET returns 404, retry POST /product WITHOUT the number field.\n- If GET returns a list, the ID is in values[0].id — use that integer directly.\n- If PUT /order/ID/:invoice returns 404, try PUT /order/:invoice/ID or POST /invoice with orders: [{\"id\": ORDER_ID}]\n- If PUT /invoice/<built-in function id>/:createPayment returns 404, try these alternatives:\n  1. POST /payment with body: {\"date\": \"YYYY-MM-DD\", \"amount\": N, \"amountCurrency\": N, \"paymentType\": {\"id\": 1}, \"invoice\": {\"id\": INVOICE_ID}}\n  2. PUT /invoice/<built-in function id>/:pay?paymentDate=YYYY-MM-DD&paymentTypeId=1&paidAmount=N\n- paymentTypeId=0 is INVALID — use 1 or 2\n- paidAmount must be INCLUDING VAT (use the \"amount\" field from invoice response)\n\nProvide a COMPLETE corrected JSON array of ONLY the calls that still need to succeed.\nDO NOT repeat calls that already returned 200/201 — those entities exist and their IDs are in the result",
+      "response_length": 1840,
+      "response": "Looking at the results, the department was created (ID: 906257) but the employee already exists. I need to find the existing employee, then create the travel expense and its line items.\n\n```json\n[\n  {\n    \"method\": \"GET\",\n    \"path\": \"/employee?email=hugo.martin@example.org\",\n    \"body\": null,\n    \"description\": \"Find existing employee Hugo Martin by email\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense\",\n    \"body\": {\n      \"employee\": {\n        \"id\": \"{prev_id}\"\n      },\n      \"title\": \"Conférence Stavanger\",\n      \"startDate\": \"2026-01-15\",\n      \"endDate\": \"2026-01-19\"\n    },\n    \"description\": \"Create travel expense report for 5 days\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/perDiemCompensation\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{prev_id}\"\n      },\n      \"rateCategory\": {\n        \"id\": 1\n      },\n      \"countDays\": 5,\n      \"rateAmount\": 800,\n      \"amount\": 4000,\n      \"isDeductionForBreakfast\": false\n    },\n    \"description\": \"Add per diem allowance: 5 days × 800 NOK\",\n    \"depends_on\": 1\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/cost\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{result_1_id}\"\n      },\n      \"description\": \"Billet d'avion\",\n      \"rate\": 1,\n      \"count\": 1,\n      \"amount\": 7700,\n      \"costCategoryId\": 1,\n      \"date\": \"2026-01-15\",\n      \"rateCurrency\": 7700\n    },\n    \"description\": \"Add flight ticket expense 7700 NOK\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/cost\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{result_1_id}\"\n      },\n      \"description\": \"Taxi\",\n      \"rate\": 1,\n      \"count\": 1,\n      \"amount\": 600,\n      \"costCategoryId\": 2,\n      \"date\": \"2026-01-15\",\n      \"rateCurrency\": 600\n    },\n    \"description\": \"Add taxi expense 600 NOK\"\n  }\n]\n```"
+    },
+    {
+      "role": "fix_2",
+      "prompt_length": 9230,
+      "prompt": "Original task: Enregistrez une note de frais de déplacement pour Hugo Martin (hugo.martin@example.org) pour \"Conférence Stavanger\". Le voyage a duré 5 jours avec indemnités journalières (taux journalier 800 NOK). Dépenses : billet d'avion 7700 NOK et taxi 600 NOK.\n\n\n--- Round 1 ---\nCalls made:\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/department\",\n    \"body\": {\n      \"name\": \"General\",\n      \"departmentNumber\": 1\n    },\n    \"description\": \"Create department\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/employee\",\n    \"body\": {\n      \"firstName\": \"Hugo\",\n      \"lastName\": \"Martin\",\n      \"email\": \"hugo.martin@example.org\",\n      \"userType\": \"STANDARD\",\n      \"department\": {\n        \"id\": \"{prev_id}\"\n      }\n    },\n    \"description\": \"Create employee Hugo Martin\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense\",\n    \"body\": {\n      \"employee\": {\n        \"id\": \"{prev_id}\"\n      },\n      \"title\": \"Conf\\u00e9rence Stavanger\",\n      \"startDate\": \"2026-01-15\",\n      \"endDate\": \"2026-01-19\"\n    },\n    \"description\": \"Create travel expense report for 5 days\",\n    \"depends_on\": 1\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/perDiemCompensation\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{prev_id}\"\n      },\n      \"rateCategory\": {\n        \"id\": 1\n      },\n      \"countDays\": 5,\n      \"rateAmount\": 800,\n      \"amount\": 4000,\n      \"isDeductionForBreakfast\": false\n    },\n    \"description\": \"Add per diem allowance: 5 days \\u00d7 800 NOK\",\n    \"depends_on\": 2\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/cost\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{result_2_id}\"\n      },\n      \"description\": \"Billet d'avion\",\n      \"rate\": 1,\n      \"count\": 1,\n      \"amount\": 7700,\n      \"costCategoryId\": 1,\n      \"date\": \"2026-01-15\",\n      \"rateCurrency\": 7700\n    },\n    \"description\": \"Add flight ticket expense 7700 NOK\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/cost\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{result_2_id}\"\n      },\n      \"description\": \"Taxi\",\n      \"rate\": 1,\n      \"count\": 1,\n      \"amount\": 600,\n      \"costCategoryId\": 2,\n      \"date\": \"2026-01-15\",\n      \"rateCurrency\": 600\n    },\n    \"description\": \"Add taxi expense 600 NOK\"\n  }\n]\nResults:\n[\n  {\n    \"status\": 201,\n    \"id\": 906257,\n    \"data\": {\n      \"id\": 906257,\n      \"version\": 0,\n      \"url\": \"kkpqfuj-amager.tripletex.dev/v2/department/906257\",\n      \"name\": \"General\",\n      \"departmentNumber\": \"1\",\n      \"departmentManager\": null,\n      \"displayName\": \"1 General\",\n      \"isInactive\": false,\n      \"businessActivityTypeId\": 0\n    }\n  },\n  {\n    \"status\": 422,\n    \"error\": \"{\\\"status\\\":422,\\\"code\\\":18000,\\\"message\\\":\\\"Validering feilet.\\\",\\\"link\\\":\\\"https://tripletex.no/v2-docs/\\\",\\\"developerMessage\\\":\\\"VALIDATION_ERROR\\\",\\\"validationMessages\\\":[{\\\"field\\\":\\\"email\\\",\\\"message\\\":\\\"Det finnes allerede en bruker med denne e-postadressen.\\\",\\\"path\\\":null,\\\"rootId\\\":null}],\\\"requestId\\\":\\\"fdcc375a-4e4a-4ee\"\n  },\n  {\n    \"error\": \"Unresolved references: ['{prev_id}']\",\n    \"id\": null\n  },\n  {\n    \"error\": \"Unresolved references: ['{prev_id}']\",\n    \"id\": null\n  },\n  {\n    \"error\": \"Unresolved references: ['{result_2_id}']\",\n    \"id\": null\n  },\n  {\n    \"error\": \"Unresolved references: ['{result_2_id}']\",\n    \"id\": null\n  }\n]\n\n--- Round 2 ---\nCalls made:\n[\n  {\n    \"method\": \"GET\",\n    \"path\": \"/employee?email=hugo.martin@example.org\",\n    \"body\": null,\n    \"description\": \"Find existing employee Hugo Martin by email\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense\",\n    \"body\": {\n      \"employee\": {\n        \"id\": \"{prev_id}\"\n      },\n      \"title\": \"Conf\\u00e9rence Stavanger\",\n      \"startDate\": \"2026-01-15\",\n      \"endDate\": \"2026-01-19\"\n    },\n    \"description\": \"Create travel expense report for 5 days\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/perDiemCompensation\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{prev_id}\"\n      },\n      \"rateCategory\": {\n        \"id\": 1\n      },\n      \"countDays\": 5,\n      \"rateAmount\": 800,\n      \"amount\": 4000,\n      \"isDeductionForBreakfast\": false\n    },\n    \"description\": \"Add per diem allowance: 5 days \\u00d7 800 NOK\",\n    \"depends_on\": 1\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/cost\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{result_1_id}\"\n      },\n      \"description\": \"Billet d'avion\",\n      \"rate\": 1,\n      \"count\": 1,\n      \"amount\": 7700,\n      \"costCategoryId\": 1,\n      \"date\": \"2026-01-15\",\n      \"rateCurrency\": 7700\n    },\n    \"description\": \"Add flight ticket expense 7700 NOK\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/cost\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{result_1_id}\"\n      },\n      \"description\": \"Taxi\",\n      \"rate\": 1,\n      \"count\": 1,\n      \"amount\": 600,\n      \"costCategoryId\": 2,\n      \"date\": \"2026-01-15\",\n      \"rateCurrency\": 600\n    },\n    \"description\": \"Add taxi e",
+      "response_length": 1898,
+      "response": "Looking at the errors, I need to:\n\n1. The employee already exists with ID 18179852.\n2. The `POST /travelExpense` failed because `startDate` doesn't exist on this endpoint. I need to check the correct field names.\n\nLet me look at the travel expense API more carefully. The error says \"startDate\" field doesn't exist on the object. The correct fields might be `departureDate` and `returnDate` instead of `startDate` and `endDate`.\n\n```json\n[\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense\",\n    \"body\": {\n      \"employee\": {\n        \"id\": 18179852\n      },\n      \"title\": \"Conférence Stavanger\",\n      \"departureDate\": \"2026-01-15\",\n      \"returnDate\": \"2026-01-19\"\n    },\n    \"description\": \"Create travel expense report for 5 days\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/perDiemCompensation\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{prev_id}\"\n      },\n      \"rateCategory\": {\n        \"id\": 1\n      },\n      \"countDays\": 5,\n      \"rateAmount\": 800,\n      \"amount\": 4000,\n      \"isDeductionForBreakfast\": false\n    },\n    \"description\": \"Add per diem allowance: 5 days × 800 NOK\",\n    \"depends_on\": 0\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/cost\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{result_0_id}\"\n      },\n      \"description\": \"Billet d'avion\",\n      \"rate\": 1,\n      \"count\": 1,\n      \"amount\": 7700,\n      \"costCategoryId\": 1,\n      \"date\": \"2026-01-15\",\n      \"rateCurrency\": 7700\n    },\n    \"description\": \"Add flight ticket expense 7700 NOK\"\n  },\n  {\n    \"method\": \"POST\",\n    \"path\": \"/travelExpense/cost\",\n    \"body\": {\n      \"travelExpense\": {\n        \"id\": \"{result_0_id}\"\n      },\n      \"description\": \"Taxi\",\n      \"rate\": 1,\n      \"count\": 1,\n      \"amount\": 600,\n      \"costCategoryId\": 2,\n      \"date\": \"2026-01-15\",\n      \"rateCurrency\": 600\n    },\n    \"description\": \"Add taxi expense 600 NOK\"\n  }\n]\n```"
+    }
+  ],
+  "plan": [
+    {
+      "method": "POST",
+      "path": "/department",
+      "body": {
+        "name": "General",
+        "departmentNumber": 1
+      },
+      "description": "Create department"
+    },
+    {
+      "method": "POST",
+      "path": "/employee",
+      "body": {
+        "firstName": "Hugo",
+        "lastName": "Martin",
+        "email": "hugo.martin@example.org",
+        "userType": "STANDARD",
+        "department": {
+          "id": "{prev_id}"
+        }
+      },
+      "description": "Create employee Hugo Martin",
+      "depends_on": 0
+    },
+    {
+      "method": "POST",
+      "path": "/travelExpense",
+      "body": {
+        "employee": {
+          "id": "{prev_id}"
+        },
+        "title": "Conférence Stavanger",
+        "startDate": "2026-01-15",
+        "endDate": "2026-01-19"
+      },
+      "description": "Create travel expense report for 5 days",
+      "depends_on": 1
+    },
+    {
+      "method": "POST",
+      "path": "/travelExpense/perDiemCompensation",
+      "body": {
+        "travelExpense": {
+          "id": "{prev_id}"
+        },
+        "rateCategory": {
+          "id": 1
+        },
+        "countDays": 5,
+        "rateAmount": 800,
+        "amount": 4000,
+        "isDeductionForBreakfast": false
+      },
+      "description": "Add per diem allowance: 5 days × 800 NOK",
+      "depends_on": 2
+    },
+    {
+      "method": "POST",
+      "path": "/travelExpense/cost",
+      "body": {
+        "travelExpense": {
+          "id": "{result_2_id}"
+        },
+        "description": "Billet d'avion",
+        "rate": 1,
+        "count": 1,
+        "amount": 7700,
+        "costCategoryId": 1,
+        "date": "2026-01-15",
+        "rateCurrency": 7700
+      },
+      "description": "Add flight ticket expense 7700 NOK"
+    },
+    {
+      "method": "POST",
+      "path": "/travelExpense/cost",
+      "body": {
+        "travelExpense": {
+          "id": "{result_2_id}"
+        },
+        "description": "Taxi",
+        "rate": 1,
+        "count": 1,
+        "amount": 600,
+        "costCategoryId": 2,
+        "date": "2026-01-15",
+        "rateCurrency": 600
+      },
+      "description": "Add taxi expense 600 NOK"
+    }
+  ],
+  "api_calls": [
+    {
+      "status": 201,
+      "id": 906257,
+      "data": {
+        "id": 906257,
+        "version": 0,
+        "url": "kkpqfuj-amager.tripletex.dev/v2/department/906257",
+        "name": "General",
+        "departmentNumber": "1",
+        "departmentManager": null,
+        "displayName": "1 General",
+        "isInactive": false,
+        "businessActivityTypeId": 0
+      }
+    },
+    {
+      "status": 422,
+      "error": "{\"status\":422,\"code\":18000,\"message\":\"Validering feilet.\",\"link\":\"https://tripletex.no/v2-docs/\",\"developerMessage\":\"VALIDATION_ERROR\",\"validationMessages\":[{\"field\":\"email\",\"message\":\"Det finnes allerede en bruker med denne e-postadressen.\",\"path\":null,\"rootId\":null}],\"requestId\":\"fdcc375a-4e4a-4ee"
+    },
+    {
+      "error": "Unresolved references: ['{prev_id}']",
+      "id": null
+    },
+    {
+      "error": "Unresolved references: ['{prev_id}']",
+      "id": null
+    },
+    {
+      "error": "Unresolved references: ['{result_2_id}']",
+      "id": null
+    },
+    {
+      "error": "Unresolved references: ['{result_2_id}']",
+      "id": null
+    }
+  ],
+  "fix_plan": [
+    {
+      "method": "GET",
+      "path": "/employee?email=hugo.martin@example.org",
+      "body": null,
+      "description": "Find existing employee Hugo Martin by email"
+    },
+    {
+      "method": "POST",
+      "path": "/travelExpense",
+      "body": {
+        "employee": {
+          "id": "{prev_id}"
+        },
+        "title": "Conférence Stavanger",
+        "startDate": "2026-01-15",
+        "endDate": "2026-01-19"
+      },
+      "description": "Create travel expense report for 5 days",
+      "depends_on": 0
+    },
+    {
+      "method": "POST",
+      "path": "/travelExpense/perDiemCompensation",
+      "body": {
+        "travelExpense": {
+          "id": "{prev_id}"
+        },
+        "rateCategory": {
+          "id": 1
+        },
+        "countDays": 5,
+        "rateAmount": 800,
+        "amount": 4000,
+        "isDeductionForBreakfast": false
+      },
+      "description": "Add per diem allowance: 5 days × 800 NOK",
+      "depends_on": 1
+    },
+    {
+      "method": "POST",
+      "path": "/travelExpense/cost",
+      "body": {
+        "travelExpense": {
+          "id": "{result_1_id}"
+        },
+        "description": "Billet d'avion",
+        "rate": 1,
+        "count": 1,
+        "amount": 7700,
+        "costCategoryId": 1,
+        "date": "2026-01-15",
+        "rateCurrency": 7700
+      },
+      "description": "Add flight ticket expense 7700 NOK"
+    },
+    {
+      "method": "POST",
+      "path": "/travelExpense/cost",
+      "body": {
+        "travelExpense": {
+          "id": "{result_1_id}"
+        },
+        "description": "Taxi",
+        "rate": 1,
+        "count": 1,
+        "amount": 600,
+        "costCategoryId": 2,
+        "date": "2026-01-15",
+        "rateCurrency": 600
+      },
+      "description": "Add taxi expense 600 NOK"
+    }
+  ],
+  "fix_api_calls": [
+    {
+      "status": 422,
+      "error": "{\"status\":422,\"code\":16000,\"message\":\"Request mapping failed\",\"link\":\"https://tripletex.no/v2-docs/\",\"developerMessage\":null,\"validationMessages\":[{\"field\":\"departureDate\",\"message\":\"Feltet eksisterer ikke i objektet.\",\"path\":null,\"rootId\":null}],\"requestId\":\"3d708365-9688-4bdb-8b22-ced775f807a6\"}"
+    },
+    {
+      "error": "Unresolved references: ['{prev_id}']",
+      "id": null
+    },
+    {
+      "error": "Unresolved references: ['{result_0_id}']",
+      "id": null
+    },
+    {
+      "error": "Unresolved references: ['{result_0_id}']",
+      "id": null
+    }
+  ],
+  "duration_s": 43.14
+}

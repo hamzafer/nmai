@@ -1,0 +1,8 @@
+{
+  "prompt": "Enregistrez une note de frais de déplacement pour Hugo Martin (hugo.martin@example.org) pour \"Conférence Stavanger\". Le voyage a duré 5 jours avec indemnités journalières (taux journalier 800 NOK). Dépenses : billet d'avion 7700 NOK et taxi 600 NOK.",
+  "files": [],
+  "tripletex_credentials": {
+    "base_url": "https://tx-proxy-jwanbnu3pq-lz.a.run.app/v2",
+    "session_token": "rVoAIbz1I9CfUyRhqaYNWLTinjZoajpP7GCKsS53nwQ"
+  }
+}

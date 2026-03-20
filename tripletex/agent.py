@@ -664,7 +664,9 @@ Common issues:
 - startDate goes on /employee/employment, NOT on /employee
 - Project requires startDate (YYYY-MM-DD) — use today's date if not specified
 - References use {{"id": N}} format where N is the integer ID from a previous response
-- "Det finnes allerede en bruker med denne e-postadressen" = email already exists. GET /employee?email=X to find their ID.
+- "Det finnes allerede en bruker med denne e-postadressen" = email already exists.
+  Try GET /employee?email=X to find their ID.
+  If GET also fails (422/404), create a NEW employee with a modified email: add "2" before the @, e.g. alice.smith2@example.org
 - "Produktnummeret NNNN er i bruk" = product number exists. Try GET /product?number=NNNN to find it. If GET returns 404, retry POST /product WITHOUT the number field.
 - If GET returns a list, the ID is in values[0].id — use that integer directly.
 - If PUT /order/ID/:invoice returns 404, try PUT /order/:invoice/ID or POST /invoice with orders: [{{"id": ORDER_ID}}]
