@@ -177,6 +177,15 @@ PUT /invoice/{id}/:createPayment — Register payment on an invoice
   3. Register payment on the FOUND invoice ID
   Creating new entities from scratch will score near zero on these tasks.
 
+  BANK RECONCILIATION (CSV) PATTERN:
+  When the task asks to reconcile a bank statement CSV against invoices:
+  1. GET /invoice?invoiceDateFrom=2020-01-01&invoiceDateTo=2026-12-31&count=100 to get ALL invoices
+  2. Match CSV rows to invoices by AMOUNT (not invoice number! CSV numbers like 1001 may not match actual invoice numbers like 1,2,3)
+  3. For each matched invoice, register payment: PUT /invoice/{id}/:createPayment?paymentDate=CSV_DATE&paymentTypeId=1&paidAmount=AMOUNT&paidAmountCurrency=AMOUNT
+  4. For supplier payments in CSV: GET /supplierInvoice to find matching supplier invoices
+  5. For bank fees/interest: POST /ledger/voucher with debit/credit postings
+  Use the invoice IDs from step 1 directly — hardcode them in subsequent calls.
+
 GET /activity — Search for existing activities (MUST do before POST!)
   GET /activity?name=Analyse&count=10 — search by name
   Activities often PRE-EXIST in sandbox. ALWAYS GET first, only POST if empty.
@@ -693,6 +702,10 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                     posting["amountGross"] = posting.pop("amount")
                     posting["amountGrossCurrency"] = posting.get("amountGrossCurrency", posting["amountGross"])
                     print(f"  [{i}] AUTO-FIX: converted amount→amountGross in supplierInvoice posting")
+                # Strip "row" field — causes 500 on supplier invoices
+                if "row" in posting:
+                    posting.pop("row")
+                    print(f"  [{i}] AUTO-FIX: stripped 'row' from supplierInvoice posting")
 
         url = f"{base_url}{path}"
         print(f"  [{i}] {method} {path} — {desc}")
