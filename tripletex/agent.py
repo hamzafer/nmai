@@ -295,7 +295,8 @@ POST /ledger/voucher — Create a journal entry / voucher
   For customer-related postings (AR account 1500, exchange rate diffs, etc.):
     Include "customer": {"id": N} in each posting that touches a customer account.
     Omitting customer on AR postings causes "Kunde mangler" (customer missing) 422 error.
-  REQUIRED: "row" (integer >= 1, NEVER 0), "amountGross", "amountGrossCurrency", "account.id"
+  REQUIRED: "row" (integer, MUST start at 1, then 2, 3, ...). Row 0 is RESERVED for system postings — using row 0 causes instant 422.
+  REQUIRED: "amountGross", "amountGrossCurrency", "account.id"
   AMOUNT SIGN: positive amountGross = DEBIT, negative = CREDIT. Postings MUST sum to zero.
   NEVER use "amount" — it causes "uten posteringer" error! ONLY use "amountGross" and "amountGrossCurrency".
   NEVER use "debitAmount"/"creditAmount" — those fields do NOT exist!
@@ -436,12 +437,13 @@ Pattern 7 — Run payroll (salary + optional bonus):
   {"method": "POST", "path": "/employee", "body": {"firstName": "Ola", "lastName": "Nordmann", "email": "ola@example.org", "userType": "STANDARD", "department": {"id": "{prev_id}"}}, "description": "Create employee", "depends_on": 0},
   {"method": "POST", "path": "/employee/employment", "body": {"employee": {"id": "{prev_id}"}, "startDate": "2025-01-01"}, "description": "Create employment", "depends_on": 1},
   {"method": "GET", "path": "/salary/type?isInactive=false&count=100", "body": null, "description": "Get salary types — find Fastlønn and Bonus IDs"},
-  {"method": "POST", "path": "/salary/payslip", "body": {"employee": {"id": "{result_1_id}"}, "date": "2025-03-31", "year": 2025, "month": 3, "specifications": [{"salaryType": {"id": "{result_3_id}"}, "rate": 45000, "count": 1, "amount": 45000}]}, "description": "Create payslip with salary"}
+  {"method": "POST", "path": "/salary/transaction?generateTaxDeduction=true", "body": {"year": 2025, "month": 3, "payslips": [{"employee": {"id": "{result_1_id}"}, "specifications": [{"salaryType": {"id": "{result_3_id}"}, "rate": 45000, "count": 1}]}]}, "description": "Run payroll with salary"}
 ]
 ```
+NOTE: Use POST /salary/transaction (NOT /salary/payslip — that returns 500!).
 NOTE: You MUST GET /salary/type first — do NOT hardcode salary type IDs.
-NOTE: "Fastlønn" = base salary. For bonus, find the "Bonus" type in the GET response and add a second specification.
-NOTE: Field MUST be "specifications" — NOT "payslipSpecifications".
+NOTE: "Fastlønn" = base salary. For bonus, add a second specification with Bonus type.
+NOTE: Body wraps payslips in array: {"year": N, "month": N, "payslips": [{"employee": ..., "specifications": [...]}]}
 
 RESPONSE FORMAT — return a JSON array of API calls. Use "depends_on" (0-indexed integer) for {prev_id} substitution. Use "{result_N_id}" to reference any previous call's ID.
 
@@ -774,6 +776,15 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                 if "row" in posting:
                     posting.pop("row")
                     print(f"  [{i}] AUTO-FIX: stripped 'row' from supplierInvoice posting")
+
+        # Pre-fix: voucher posting rows must start at 1, and ensure amountGrossCurrency exists
+        if method == "POST" and "/ledger/voucher" in path and body:
+            postings = body.get("postings", [])
+            for idx, posting in enumerate(postings):
+                if posting.get("row", 0) == 0 or "row" not in posting:
+                    posting["row"] = idx + 1
+                if "amountGross" in posting and "amountGrossCurrency" not in posting:
+                    posting["amountGrossCurrency"] = posting["amountGross"]
 
         url = f"{base_url}{path}"
         print(f"  [{i}] {method} {path} — {desc}")
