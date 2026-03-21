@@ -126,7 +126,8 @@ POST /product — Create a product (only if GET finds nothing)
 
 POST /project — Create a project
   Required: name, projectManager ({"id": N}), isInternal (true/false), startDate (YYYY-MM-DD)
-  Optional: customer ({"id": N}), endDate, number, description
+  Optional but RECOMMENDED: customer ({"id": N}), endDate, number (string), description (string)
+  ALWAYS include description (summarize the task). Include number if task specifies one.
   NOTE: projectManager must reference an employee ID
   NOTE: startDate IS required — use today's date if not specified in the task
 
@@ -137,6 +138,8 @@ POST /department — Create a department
 POST /order — Create an order
   Required: customer ({"id": N}), deliveryDate (YYYY-MM-DD), orderDate (YYYY-MM-DD)
   Optional: orderLines (array of {"product": {"id": N}, "count": N, "unitPriceExcludingVatCurrency": N})
+  IMPORTANT: ALWAYS include unitPriceExcludingVatCurrency on each order line — use the price from the task.
+  Do NOT rely on the product's default price. Set it explicitly on every order line.
   NOTE: Do NOT use "receiver" — use "customer" for the customer reference
 
 PUT /order/{id}/:invoice — Convert order to invoice
@@ -667,6 +670,17 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                     if bad_field in body:
                         print(f"  [{i}] AUTO-STRIP: removing invalid field '{bad_field}' from orderline body")
                         body.pop(bad_field)
+        # Auto-fix: customer must have BOTH postalAddress and physicalAddress
+        if method == "POST" and path.strip("/") == "customer" and body:
+            pa = body.get("physicalAddress")
+            po = body.get("postalAddress")
+            if pa and not po:
+                body["postalAddress"] = dict(pa)
+                print(f"  [{i}] AUTO-FIX: copied physicalAddress → postalAddress")
+            elif po and not pa:
+                body["physicalAddress"] = dict(po)
+                print(f"  [{i}] AUTO-FIX: copied postalAddress → physicalAddress")
+
             # Auto-fix: voucher postings row must be >= 1 (row 0 = system-generated error)
             if "/ledger/voucher" in path and body.get("postings"):
                 for idx, posting in enumerate(body["postings"]):
@@ -906,6 +920,23 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                         if m:
                             print(f"  [{i}] AUTO-FIX: salary type {cid} → {m.get('name', '?')} id={m['id']}")
                             st["id"] = m["id"]
+
+        # Auto-fix: force row >= 1 on voucher postings (row 0 is system-reserved)
+        if method == "POST" and body:
+            voucher = body.get("voucher", body) if "/supplierInvoice" in path else body
+            postings = voucher.get("postings", []) if isinstance(voucher, dict) else []
+            if postings and "/voucher" in path or "/supplierInvoice" in path:
+                for p in postings:
+                    if isinstance(p, dict) and p.get("row") == 0:
+                        p["row"] = 1
+                        print(f"  [{i}] AUTO-FIX: row 0 → 1 on voucher posting")
+
+        # Auto-strip banned fields from employment
+        if method == "POST" and "/employee/employment" in path and body:
+            for bad in ("percentOfFullTimeEquivalent", "employmentType", "salary", "monthlySalary"):
+                if bad in body:
+                    body.pop(bad)
+                    print(f"  [{i}] AUTO-STRIP: removed '{bad}' from employment (banned field)")
 
         url = f"{base_url}{path}"
         print(f"  [{i}] {method} {path} — {desc}")
@@ -1150,6 +1181,36 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                         if amount:
                             tried_action = path.split("/:")[-1].split("?")[0]
                             orig_tid = params.get("paymentTypeId", [None])[0]
+                            # Try POST /payment with body FIRST (most reliable through proxy)
+                            for tid in [1, 2]:
+                                try:
+                                    pay_body = {
+                                        "date": pay_date, "paymentDate": pay_date,
+                                        "amount": float(amount), "amountCurrency": float(amount),
+                                        "paidAmount": float(amount), "paidAmountCurrency": float(amount),
+                                        "paymentType": {"id": tid}, "paymentTypeId": tid,
+                                        "invoice": {"id": int(inv_id)},
+                                    }
+                                    for post_path in ["/payment", "/invoicePayment"]:
+                                        post_resp = requests.post(f"{base_url}{post_path}", auth=auth, json=pay_body, timeout=15)
+                                        print(f"    AUTO-FIX: POST {post_path} typeId={tid} → {post_resp.status_code}")
+                                        if post_resp.status_code in (200, 201):
+                                            post_data = post_resp.json()
+                                            post_val = post_data.get("value", post_data)
+                                            post_rid = post_val.get("id") if isinstance(post_val, dict) else None
+                                            results.append({"status": post_resp.status_code, "id": post_rid, "data": post_val})
+                                            print(f"    AUTO-FIX: payment via POST {post_path} succeeded, id={post_rid}")
+                                            break
+                                    else:
+                                        continue
+                                    break  # outer loop — payment succeeded
+                                except Exception:
+                                    continue
+                            else:
+                                # POST didn't work, fall through to PUT retries
+                                pass
+                            if len(results) > i:
+                                continue  # Payment was handled by POST
                             # Include original endpoint (with correct typeIds) + alternatives
                             all_actions = [tried_action] + [a for a in ["payment", "createPayment", "pay"] if a != tried_action]
                             payment_fixed = False
@@ -1518,10 +1579,10 @@ Common issues:
   {{"method": "PUT", "path": "/order/ID/:invoice?invoiceDate=YYYY-MM-DD&invoiceDueDate=YYYY-MM-DD", "body": {{}}}}
 - If task says "send"/"sende"/"senden"/"envoyer"/"enviar" but invoice was created without sending:
   PUT /invoice/INVOICE_ID/:send?sendType=EMAIL with body: {{}}
-- For payment: PUT /invoice/{id}/:createPayment?paymentDate=YYYY-MM-DD&paymentTypeId=1&paidAmount=N&paidAmountCurrency=N
-  DO NOT try GET /ledger/paymentType (404 through proxy).
-  paymentTypeId MUST be 1 (not 0). paidAmount must INCLUDE VAT (use invoice "amount" field).
-  If 404, the auto-fix retries with `:payment` and `:pay` alternatives.
+- For payment: include BOTH endpoint variants in your fix plan (one will succeed):
+  1. PUT /invoice/INVOICE_ID/:payment?paymentDate=YYYY-MM-DD&paymentTypeId=1&paidAmount=N&paidAmountCurrency=N
+  2. PUT /invoice/INVOICE_ID/:createPayment?paymentDate=YYYY-MM-DD&paymentTypeId=1&paidAmount=N&paidAmountCurrency=N
+  DO NOT try GET /ledger/paymentType (404). paymentTypeId MUST be 1. paidAmount INCLUDES VAT.
 - "Feltet eksisterer ikke i objektet" on /employee/employment = remove "employmentType" (doesn't exist).
   Only valid fields: employee, startDate, endDate, percentOfFullTimeEquivalent, occupationCode.
 - For payslip: field is "specifications" NOT "payslipSpecifications".
