@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 22:22
 **Total unique task types seen:** 29 of 30
-**Total real submissions analyzed:** 97
+**Total real submissions analyzed:** 104
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -134,6 +134,12 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 21:40 | — | SUPPLIER_INVOICE | 2/10 (20%) | French PDF. 3/4 OK |
 | 2026-03-21 21:42 | — | PAYROLL | 0/8 (0%) | French. 4/5 OK but scored 0% |
 | 2026-03-21 21:45 | — | PRODUCT_CREATE | 7/7 (100%) | PERFECT! Spanish. Repeat 100% |
+| 2026-03-21 21:46 | — | CURRENCY_EXCHANGE_PAYMENT | 6/8 (75%) | German. 5/6 OK |
+| 2026-03-21 21:48 | — | TIME_TRACKING | 4/8 (50%) | French. 9/10 OK, 108s |
+| 2026-03-21 21:51 | — | TRAVEL_EXPENSE | 4.5/8 (56%) | Portuguese. 9/9 OK! All calls succeeded |
+| 2026-03-21 21:54 | — | TIME_TRACKING | 4/8 (50%) | Portuguese. 9/10 OK, 122s |
+| 2026-03-21 21:57 | — | PAYMENT_REVERSAL | 6/8 (75%) | French. 2/3 OK |
+| 2026-03-21 22:00 | — | LEDGER_ANALYSIS_PROJECT | 0/10 (0%) | Norwegian. 10/10 OK but scored 0% — GET-only task, no action taken |
 
 ---
 
