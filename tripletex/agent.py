@@ -67,8 +67,23 @@ POST /supplier — Create a supplier (use this instead of /customer with isSuppl
 POST /supplierInvoice — Register a supplier/vendor invoice (incoming invoice)
   Required: supplier ({"id": N}), invoiceNumber (string), invoiceDate (YYYY-MM-DD), invoiceDueDate (YYYY-MM-DD)
   NOTE: Use "invoiceDueDate" NOT "dueDate" — "dueDate" doesn't exist on this endpoint.
-  Optional: currency, amount, amountCurrency
-  For posting with accounts/VAT, use voucher lines after creating the invoice.
+  Required: voucher with BALANCED postings (MUST have both debit AND credit — single posting WILL fail):
+    - DEBIT: expense account for NET amount (positive), with input vatType
+      {"account": {"id": EXPENSE_ACCT_ID}, "amount": NET_AMOUNT, "vatType": {"id": 11}, "description": "..."}
+    - CREDIT: accounts payable (2400) for GROSS amount (NEGATIVE), NO vatType
+      {"account": {"id": AP_ACCT_ID}, "amount": -GROSS_AMOUNT, "description": "..."}
+  Tripletex auto-generates the VAT posting when vatType is set on the debit line.
+  Example: 67050 net + 25% VAT = 83812.50 gross → debit 67050, credit -83812.50. Tripletex adds VAT automatically.
+  CRITICAL: A single posting WILL fail with "credit posting missing". You MUST send BOTH lines.
+
+  Input VAT types (inngående avgift — use these directly, NEVER GET /ledger/vatType):
+    - {"id": 11} = 25% input VAT (Fradrag inngående avgift, høy sats)
+    - {"id": 12} = 15% input VAT (middels sats)
+    - {"id": 13} = 12% input VAT (lav sats)
+
+  Account lookups: ALWAYS use range search (exact number may return 422):
+    GET /ledger/account?numberFrom=2400&numberTo=2410&count=10 (accounts payable)
+    GET /ledger/account?numberFrom=6300&numberTo=6350&count=10 (use task's expense account range)
 
 GET /ledger/account — Query chart of accounts
   Search by number: GET /ledger/account?number=7140
@@ -151,33 +166,51 @@ POST /project/{projectId}/projectActivity — Link an activity to a project
   NOTE: The projectId goes in the URL path, not the body.
 
 POST /timesheet/entry — Log hours
-  Required: employee ({"id": N}), project ({"id": N}), activity ({"id": N}), date (YYYY-MM-DD), hours (number)
-  Optional: comment, hourlyRate
+  Required: employee ({"id": N}), project ({"id": N}), activity ({"id": N}), date (YYYY-MM-DD), hours (number), chargeableHours (number, can be 0)
+  Optional: comment
+  NOTE: chargeableHours is REQUIRED — set to same as hours, or 0 if not billable.
 
 PUT /project/{id}/:createInvoice — Generate invoice from project hours
   Pass invoiceDate as query param: PUT /project/123/:createInvoice?invoiceDate=2026-01-15
 
-GET/POST/PUT/DELETE /travelExpense — Travel expense reports
-  Required for POST: employee ({"id": N}), title (string), startDate (YYYY-MM-DD), endDate (YYYY-MM-DD)
+POST /project/orderline — Set fixed price on a project
+  Required: project ({"id": N}), date (YYYY-MM-DD)
+  Optional: product ({"id": N}), description, count, unitPriceExcludingVatCurrency, amountExcludingVatCurrency
+  Use this to set the fixed price amount on a project.
+
+POST /travelExpense — Create travel expense report
+  Required: employee ({"id": N}), title (string)
+  Do NOT use startDate/endDate — those fields do NOT exist!
+  Use travelDetails nested object for dates:
+  {"employee": {"id": N}, "title": "Trip name", "travelDetails": {"departureDate": "YYYY-MM-DD", "returnDate": "YYYY-MM-DD", "destination": "City", "purpose": "reason"}}
+  Optional top-level: project ({"id": N}), department ({"id": N}), isCompleted (boolean)
+GET /travelExpense — Search existing travel expenses
+DELETE /travelExpense/{id} — Delete a travel expense
 
 POST /travelExpense/perDiemCompensation — Add daily allowance to travel expense
-  Required: travelExpense ({"id": N}), rateCategory ({"id": 1}), countDays (int)
-  Optional: rateAmount, amount, isDeductionForBreakfast
+  Required: travelExpense ({"id": N}), location (string)
+  Optional: rateCategory ({"id": N}), count (int = number of days), rate (number), amount (number)
+  Optional: isDeductionForBreakfast (bool), isDeductionForLunch (bool), isDeductionForDinner (bool)
+  To find rate categories: GET /travelExpense/rateCategory
 
 POST /travelExpense/cost — Add individual expense to travel report
-  Required: travelExpense ({"id": N}), description (string), amount (number), date (YYYY-MM-DD)
+  Required: travelExpense ({"id": N}), costCategory ({"id": N}), paymentType ({"id": N}), amountCurrencyIncVat (number), date (YYYY-MM-DD)
+  Optional: comments (string), currency ({"id": N})
+  To find cost categories: GET /travelExpense/costCategory
+  To find payment types: GET /travelExpense/paymentType
 
 GET /salary/type — List salary types (needed for payroll)
   Returns list of salary types with IDs. Look for "Fastlønn" (fixed salary), "Bonus", etc.
 
-POST /salary/payslip — Create/run payroll for an employee
-  Required: employee ({"id": N}), date (YYYY-MM-DD), year (int), month (int)
-  Required: specifications (array) — NOT "payslipSpecifications"!
-  Each specification: {"salaryType": {"id": N}, "rate": N, "count": 1, "amount": N}
-  IMPORTANT: Field is "specifications" not "payslipSpecifications".
-  First GET /salary/type to find valid salary type IDs.
+POST /salary/transaction — Create payroll (DO NOT use POST /salary/payslip — it doesn't exist!)
+  Required: year (int), month (int), payslips (array)
+  Each payslip: {"employee": {"id": N}, "specifications": [{"salaryType": {"id": N}, "rate": N, "count": 1}]}
+  Optional on transaction: date (YYYY-MM-DD)
+  Optional query param: ?generateTaxDeduction=true
+  First GET /salary/type to find valid salary type IDs (e.g. "Fastlønn" for fixed salary).
+  Example: {"year": 2026, "month": 3, "payslips": [{"employee": {"id": 123}, "specifications": [{"salaryType": {"id": 100}, "rate": 42350, "count": 1}]}]}
 
-GET /salary/payslip — Query existing payslips
+GET /salary/payslip — Query existing payslips (read-only)
 
 GET /ledger/account — Query chart of accounts
   Search by number: GET /ledger/account?number=6010
@@ -274,6 +307,20 @@ Pattern 6 — Register a supplier:
   {"method": "POST", "path": "/supplier", "body": {"name": "Acme Supplier AS", "email": "faktura@acme.no", "organizationNumber": "123456789"}, "description": "Register supplier"}
 ]
 ```
+
+Pattern 8 — Register supplier invoice from PDF (with balanced voucher postings):
+```json
+[
+  {"method": "POST", "path": "/supplier", "body": {"name": "Silveroak Ltd", "email": "faktura@silveroak.no", "organizationNumber": "945217456"}, "description": "Create supplier"},
+  {"method": "GET", "path": "/ledger/account?numberFrom=6340&numberTo=6350&count=10", "body": null, "description": "Look up expense account 6340"},
+  {"method": "GET", "path": "/ledger/account?numberFrom=2400&numberTo=2410&count=10", "body": null, "description": "Look up accounts payable (2400)"},
+  {"method": "POST", "path": "/supplierInvoice", "body": {"supplier": {"id": "{result_0_id}"}, "invoiceNumber": "INV-2026-5539", "invoiceDate": "2026-02-28", "invoiceDueDate": "2026-03-30", "voucher": {"date": "2026-02-28", "description": "Sikkerhetsprogramvare", "postings": [{"account": {"id": "{result_1_id}"}, "amount": 67050, "vatType": {"id": 11}, "description": "Sikkerhetsprogramvare"}, {"account": {"id": "{result_2_id}"}, "amount": -83812.50, "description": "Accounts payable"}]}}, "description": "Register supplier invoice with balanced postings"}
+]
+```
+NOTE: vatType {"id": 11} = 25% input VAT. Use directly — NEVER GET /ledger/vatType.
+NOTE: Debit expense NET amount WITH vatType. Credit AP GROSS amount (negative, NO vatType).
+NOTE: Tripletex auto-generates VAT posting from vatType. Send only 2 postings: [debit_net, credit_gross].
+NOTE: Use numberFrom/numberTo for account lookup — exact number queries may return 422.
 
 Pattern 7 — Run payroll (salary + optional bonus):
 ```json
@@ -558,6 +605,29 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                 results.append({"status": resp.status_code, "id": result_id, "data": value})
                 print(f"    OK ({resp.status_code}), id={result_id}")
             else:
+                # Auto-fix: if GET /ledger/account returns 422, try range search instead
+                if resp.status_code == 422 and method == "GET" and "/ledger/account" in path and "number=" in path and "numberFrom" not in path:
+                    import urllib.parse
+                    parsed_qs = urllib.parse.parse_qs(urllib.parse.urlparse(path).query)
+                    acct_num = parsed_qs.get("number", [None])[0]
+                    if acct_num and acct_num.isdigit():
+                        acct_int = int(acct_num)
+                        range_from = (acct_int // 10) * 10
+                        range_to = range_from + 19
+                        fallback_url = f"{base_url}/ledger/account?numberFrom={range_from}&numberTo={range_to}&count=10"
+                        try:
+                            fb_resp = requests.get(fallback_url, auth=auth, timeout=15)
+                            if fb_resp.status_code == 200:
+                                fb_data = fb_resp.json()
+                                fb_vals = fb_data.get("values", [])
+                                if fb_vals:
+                                    fb_id = fb_vals[0]["id"]
+                                    results.append({"status": 200, "id": fb_id, "data": fb_data})
+                                    print(f"    AUTO-FIX: account {acct_num} got 422, range {range_from}-{range_to} found {len(fb_vals)}, using id={fb_id}")
+                                    continue
+                        except Exception:
+                            pass
+
                 # Auto-fix: if payment endpoint returns 404/500, try alternatives inline
                 if resp.status_code in (404, 500) and method == "PUT" and "/invoice/" in path and (
                     ":createPayment" in path or ":payment" in path or ":pay" in path
@@ -910,6 +980,12 @@ Common issues:
   Each spec: {{"salaryType": {{"id": N}}, "rate": N, "count": 1, "amount": N}}
   GET /salary/type first to find valid IDs. "Fastlønn" = base salary.
 - If nationalIdentityNumber caused 422 ("Ugyldig format"), OMIT it — create employee without it.
+- If supplierInvoice returns "credit posting missing": you only sent 1 posting. You MUST send 2:
+  DEBIT: expense account NET amount with vatType {{"id": 11}} (25% input VAT)
+  CREDIT: AP account (2400) GROSS amount as NEGATIVE, NO vatType
+  Use numberFrom/numberTo for account lookups. Hardcode vatType {{"id": 11}} for 25%.
+- If GET /ledger/account?number=N returns 422, use range search instead:
+  GET /ledger/account?numberFrom=N&numberTo=N+10&count=10
 
 Provide a COMPLETE corrected JSON array of ONLY the calls that still need to succeed.
 DO NOT repeat calls that already returned 200/201 — those entities exist and their IDs are in the results above.
