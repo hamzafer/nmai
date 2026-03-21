@@ -1,8 +1,8 @@
 # Tripletex Task Index
 
-**Last updated:** 2026-03-21 19:51
-**Total unique task types seen:** 23 of 30
-**Total real submissions analyzed:** 57
+**Last updated:** 2026-03-21 20:03
+**Total unique task types seen:** 24 of 30
+**Total real submissions analyzed:** 58
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -48,6 +48,7 @@
 | CUSTOM_DIMENSION_VOUCHER | FAILED | 0/6 | No | 2 |
 | RECEIPT_EXPENSE_PDF | FAILED | 0/10 | Yes (PDF) | 1 |
 | CURRENCY_EXCHANGE_PAYMENT | PARTIAL | 7/10 | No | 1 |
+| PAYMENT_REVERSAL | PARTIAL | 6/8 | No | 1 |
 
 ## Tier 3 (x3 multiplier)
 
@@ -60,7 +61,7 @@
 
 ## Not Yet Identified (13 remaining task types)
 
-We've seen 23 of 30 task types. The remaining 7 will appear as we submit more.
+We've seen 24 of 30 task types. The remaining 6 will appear as we submit more.
 Possible unseen types based on Tripletex API capabilities:
 - Employee update/delete
 - Customer with address
@@ -95,6 +96,7 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 19:51 | 20260321_195100.md | CURRENCY_EXCHANGE_PAYMENT | 7/10 (70%) | NEW — EUR invoice + disagio. Voucher posting failed: customer missing in postings |
 | 2026-03-21 19:55 | 20260321_195500.md | INVOICE_MULTI_LINE | 0/8 (0%) | Spanish. Products existed but agent re-created (422 dup name). Wrong product IDs on order lines |
 | 2026-03-21 19:58 | 20260321_195800.md | TRAVEL_EXPENSE | 4.5/8 (56%) | Spanish. 0 errors, all 9 calls OK. Score low: wrong per diem rate type, cost categories |
+| 2026-03-21 20:03 | 20260321_200300.md | PAYMENT_REVERSAL | 6/8 (75%) | NEW — bank returned payment, reverse via voucher. 0 errors, 5 calls |
 
 ---
 
