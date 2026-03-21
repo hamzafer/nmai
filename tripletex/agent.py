@@ -243,6 +243,9 @@ POST /ledger/voucher — Create a journal entry / voucher
   Required: postings (array) — NOT "voucherLines" (that field does NOT exist!)
   Each posting MUST have these fields:
     {"row": 1, "account": {"id": N}, "amountGross": N, "amountGrossCurrency": N, "description": "..."}
+  For customer-related postings (AR account 1500, exchange rate diffs, etc.):
+    Include "customer": {"id": N} in each posting that touches a customer account.
+    Omitting customer on AR postings causes "Kunde mangler" (customer missing) 422 error.
   REQUIRED: "row" (integer >= 1, NEVER 0), "amountGross", "amountGrossCurrency", "account.id"
   AMOUNT SIGN: positive amountGross = DEBIT, negative = CREDIT. Postings MUST sum to zero.
   NEVER use "amount" — it causes "uten posteringer" error! ONLY use "amountGross" and "amountGrossCurrency".
