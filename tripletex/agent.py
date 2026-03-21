@@ -60,6 +60,10 @@ POST /employee/employment — Create employment record (for start date)
 POST /customer — Create a customer
   Required: name, email, isCustomer (must be true)
   Optional: organizationNumber, phoneNumber, isSupplier
+  Address: If the task specifies an address, include it as:
+    "postalAddress": {"addressLine1": "Street 23", "postalCode": "0182", "city": "Oslo"}
+    "physicalAddress": {"addressLine1": "Street 23", "postalCode": "0182", "city": "Oslo"}
+  Include BOTH postalAddress and physicalAddress with the same data.
 
 POST /supplier — Create a supplier (use this instead of /customer with isSupplier)
   Required: name, email
@@ -840,6 +844,30 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                                     if payment_fixed:
                                         break
                             if payment_fixed:
+                                continue
+
+                # Auto-fix: if employment fails with "dateOfBirth", PUT employee with default DOB and retry
+                if (resp.status_code == 422 and method == "POST"
+                        and "/employee/employment" in path
+                        and "dateOfBirth" in resp.text):
+                    emp_ref = body.get("employee", {}) if body else {}
+                    emp_id = emp_ref.get("id")
+                    if emp_id and isinstance(emp_id, int):
+                        print(f"    AUTO-FIX: employment needs dateOfBirth, updating employee {emp_id}")
+                        put_resp = requests.put(
+                            f"{base_url}/employee/{emp_id}",
+                            auth=auth, json={"id": emp_id, "dateOfBirth": "1990-01-15"},
+                            timeout=15,
+                        )
+                        if put_resp.status_code in (200, 201):
+                            print(f"    AUTO-FIX: employee DOB set, retrying employment...")
+                            retry_resp = requests.post(url, auth=auth, json=body, timeout=30)
+                            if retry_resp.status_code in (200, 201):
+                                retry_data = retry_resp.json()
+                                retry_value = retry_data.get("value", retry_data)
+                                retry_id = retry_value.get("id") if isinstance(retry_value, dict) else None
+                                results.append({"status": retry_resp.status_code, "id": retry_id, "data": retry_value})
+                                print(f"    AUTO-FIX SUCCESS: employment created, id={retry_id}")
                                 continue
 
                 error_text = resp.text[:300]
