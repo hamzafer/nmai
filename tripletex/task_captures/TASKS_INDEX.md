@@ -1,8 +1,8 @@
 # Tripletex Task Index
 
-**Last updated:** 2026-03-21 18:15
-**Total unique task types seen:** 19 of 30
-**Total real submissions analyzed:** 48
+**Last updated:** 2026-03-21 18:49
+**Total unique task types seen:** 20 of 30
+**Total real submissions analyzed:** 49
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -31,7 +31,7 @@
 | INVOICE_CREATE_SEND | PARTIAL | 8/9 | No | 5 |
 | INVOICE_PAYMENT | PARTIAL | 7/9 | No | 3 |
 | INVOICE_MULTI_LINE | PARTIAL | 13/17 | No | 2 |
-| ORDER_MULTI_PRODUCT | NOT SEEN | — | — | 0 |
+| ORDER_MULTI_PRODUCT_INVOICE_PAY | PARTIAL | 5/6 | No | 1 |
 | PROJECT_CREATE | PERFECT | 4/4 | No | 6 |
 | CREDIT_NOTE | PERFECT | 7/7 | No | 2 |
 | PAYROLL | PARTIAL | 3/10 | No | 1 |
@@ -83,6 +83,7 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 18:07 | 20260321_180700.md | CUSTOM_DIMENSION_VOUCHER | 0/13 (0%) | /ledger/closeGroup 405, wrong endpoint for free dimensions |
 | 2026-03-21 18:10 | 20260321_181100.md | RECEIPT_EXPENSE_PDF | 0/10 (0%) | PDF not read, supplier invoice credit posting missing, account lookup wrong |
 | 2026-03-21 18:15 | 20260321_181500.md | DEPARTMENTS_CREATE | 7/7 (100%) | PERFECT — 3 POST /department, 0 errors, 10s |
+| 2026-03-21 18:47 | 20260321_184700.md | ORDER_MULTI_PRODUCT_INVOICE_PAY | 0/8 (0%) | Everything OK except payment: used `:payment` instead of `:createPayment` |
 
 ---
 
