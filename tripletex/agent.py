@@ -72,11 +72,11 @@ POST /supplierInvoice — Register a supplier/vendor invoice (incoming invoice)
   Required: supplier ({"id": N}), invoiceNumber (string), invoiceDate (YYYY-MM-DD), invoiceDueDate (YYYY-MM-DD)
   NOTE: Use "invoiceDueDate" NOT "dueDate" — "dueDate" doesn't exist on this endpoint.
   Required: voucher with BALANCED postings (MUST have both debit AND credit — single posting WILL fail):
-    NOTE: For supplier invoice postings, use "amountGross" and "amountGrossCurrency" (NOT "amount"!).
+    NOTE: Each posting MUST include "row" (integer >= 1, NEVER 0!), "amountGross" and "amountGrossCurrency" (NOT "amount"!).
     - DEBIT: expense account for NET amount (positive), with input vatType
-      {"account": {"id": EXPENSE_ACCT_ID}, "amountGross": NET_AMOUNT, "amountGrossCurrency": NET_AMOUNT, "vatType": {"id": 11}, "description": "..."}
+      {"row": 1, "account": {"id": EXPENSE_ACCT_ID}, "amountGross": NET_AMOUNT, "amountGrossCurrency": NET_AMOUNT, "vatType": {"id": 11}, "description": "..."}
     - CREDIT: accounts payable (2400) for GROSS amount (NEGATIVE), NO vatType
-      {"account": {"id": AP_ACCT_ID}, "amountGross": -GROSS_AMOUNT, "amountGrossCurrency": -GROSS_AMOUNT, "description": "..."}
+      {"row": 1, "account": {"id": AP_ACCT_ID}, "amountGross": -GROSS_AMOUNT, "amountGrossCurrency": -GROSS_AMOUNT, "description": "..."}
   Tripletex auto-generates the VAT posting when vatType is set on the debit line.
   Example: 67050 net + 25% VAT = 83812.50 gross → debit amountGross=67050, credit amountGross=-83812.50.
   CRITICAL: A single posting WILL fail with "credit posting missing". You MUST send BOTH lines.
@@ -193,13 +193,22 @@ POST /timesheet/entry — Log hours
   NOTE: chargeableHours is REQUIRED — set to same as hours, or 0 if not billable.
   NOTE: This works even if projectActivity linking failed — just reference the activity ID directly.
 
-PUT /project/{id}/:createInvoice — Generate invoice from project hours
-  Pass invoiceDate as query param: PUT /project/123/:createInvoice?invoiceDate=2026-01-15
+PUT /project/{id}/:createInvoice — BROKEN (always returns 404 through the proxy)
+  DO NOT USE THIS ENDPOINT. It does not work.
+
+  Instead, to invoice a project, create an order with the project's line items and invoice the order:
+  1. POST /order — Create order linked to customer, with orderLines for the hours/services
+     Include: customer ({"id": N}), orderDate, deliveryDate, project ({"id": N}),
+     orderLines: [{"description": "X hours @ Y NOK/h", "count": HOURS, "unitPriceExcludingVatCurrency": RATE, "vatType": {"id": 3}}]
+  2. PUT /order/{orderId}/:invoice?invoiceDate=YYYY-MM-DD — Convert order to invoice (this WORKS)
+
+  This is the ONLY reliable way to create project invoices.
 
 POST /project/orderline — Set fixed price on a project
   Required: project ({"id": N}), date (YYYY-MM-DD)
-  Optional: product ({"id": N}), description, count, unitPriceExcludingVatCurrency, amountExcludingVatCurrency
+  Optional: product ({"id": N}), description, count, unitPriceExcludingVatCurrency, amountExcludingVatCurrency, amountGross
   Use this to set the fixed price amount on a project.
+  IMPORTANT: amountGross is REQUIRED for the orderline to be billable. Without it you get "Ordrelinjen er ikke fakturerbar".
 
 POST /travelExpense — Create travel expense report
   Required: employee ({"id": N}), title (string)
@@ -368,7 +377,7 @@ Pattern 8 — Register supplier invoice (with balanced voucher postings):
   {"method": "POST", "path": "/supplier", "body": {"name": "Silveroak Ltd", "email": "faktura@silveroak.no", "organizationNumber": "945217456"}, "description": "Create supplier"},
   {"method": "GET", "path": "/ledger/account?numberFrom=6340&numberTo=6350&count=10", "body": null, "description": "Look up expense account"},
   {"method": "GET", "path": "/ledger/account?numberFrom=2400&numberTo=2410&count=10", "body": null, "description": "Look up accounts payable (2400)"},
-  {"method": "POST", "path": "/supplierInvoice", "body": {"supplier": {"id": "{result_0_id}"}, "invoiceNumber": "INV-2026-5539", "invoiceDate": "2026-02-28", "invoiceDueDate": "2026-03-30", "voucher": {"date": "2026-02-28", "description": "Sikkerhetsprogramvare", "postings": [{"account": {"id": "{result_1_id}"}, "amountGross": 67050, "amountGrossCurrency": 67050, "vatType": {"id": 11}, "description": "Sikkerhetsprogramvare"}, {"account": {"id": "{result_2_id}"}, "amountGross": -83812.50, "amountGrossCurrency": -83812.50, "description": "Leverandørgjeld"}]}}, "description": "Register supplier invoice with balanced postings"}
+  {"method": "POST", "path": "/supplierInvoice", "body": {"supplier": {"id": "{result_0_id}"}, "invoiceNumber": "INV-2026-5539", "invoiceDate": "2026-02-28", "invoiceDueDate": "2026-03-30", "voucher": {"date": "2026-02-28", "description": "Sikkerhetsprogramvare", "postings": [{"row": 0, "account": {"id": "{result_1_id}"}, "amountGross": 67050, "amountGrossCurrency": 67050, "vatType": {"id": 11}, "description": "Sikkerhetsprogramvare"}, {"row": 1, "account": {"id": "{result_2_id}"}, "amountGross": -83812.50, "amountGrossCurrency": -83812.50, "description": "Leverandørgjeld"}]}}, "description": "Register supplier invoice with balanced postings"}
 ]
 ```
 CRITICAL: Use "amountGross" and "amountGrossCurrency" — NOT "amount"! Supplier invoice postings IGNORE "amount".
@@ -1156,6 +1165,9 @@ Common issues:
 - If voucher returns "Kunde mangler" (customer missing): add "customer": {{"id": CUSTOMER_ID}} to each posting on AR accounts (1500).
 - If POST /project/ID/projectActivity returns 404: SKIP IT. Timesheet entries work without it —
   just reference the activity ID directly in POST /timesheet/entry.
+- If PUT /project/ID/:createInvoice returns 404: This endpoint is BROKEN. Instead, create an order
+  with orderLines for the project hours/services, then PUT /order/ID/:invoice to generate the invoice.
+- If POST /project/orderline returns "Ordrelinjen er ikke fakturerbar": add amountGross field to the body.
 
 Provide a COMPLETE corrected JSON array of ONLY the calls that still need to succeed.
 DO NOT repeat calls that already returned 200/201 — those entities exist and their IDs are in the results above.
