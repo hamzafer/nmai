@@ -1,7 +1,13 @@
 """
-Astar Island — Round Player (v2: Bayesian + Cross-Seed Learning)
+Astar Island — Round Player (v3: Feature-Based Priors + Global Adjustment)
 Usage: python astar.py [--token YOUR_JWT_TOKEN] [--dry-run]
        Reads ASTAR_TOKEN from .env if --token not provided.
+
+Key improvements over v2:
+- Feature-based priors from 17 rounds of ground truth (no more 97% "static" assumption)
+- Cross-seed observation pooling for per-round regime detection
+- Global prior adjustment based on observed transition rates
+- LOO-CV backtested: 36.6 → 69.3 average score
 """
 
 import argparse
@@ -32,13 +38,15 @@ TERRAIN_TO_CLASS = {
     5: 5,   # Mountain
 }
 
-# Static terrain types that won't change
-STATIC_CLASSES = {0, 4, 5}  # Empty/Ocean/Plains, Forest, Mountain
-
 DYNAMIC_RADIUS = 7  # cells around settlements considered dynamic
 
 DATA_DIR = Path(__file__).parent / "data"
 MODELS_DIR = Path(__file__).parent / "models"
+
+# Prediction parameters (tuned via LOO-CV on 17 rounds)
+CONCENTRATION = 15.0  # Dirichlet concentration for Bayesian update
+OBS_WEIGHT = 1.0      # Weight of global adjustment (1.0 = fully adjusted)
+MIN_FLOOR = 0.005     # Minimum probability per class
 
 
 # ─── Data persistence ─────────────────────────────────────────────────────────
@@ -196,7 +204,6 @@ def compute_optimal_viewports(priority, width, height, max_viewports=5):
         best_score = 0
         best_pos = None
 
-        # Try every possible viewport position
         for vy in range(max(1, height - 14)):
             for vx in range(max(1, width - 14)):
                 vw = min(15, width - vx)
@@ -207,25 +214,21 @@ def compute_optimal_viewports(priority, width, height, max_viewports=5):
                     best_pos = (vx, vy, vw, vh)
 
         if best_score == 0 or best_pos is None:
-            break  # No more dynamic cells to cover
+            break
 
         viewports.append(best_pos)
         vx, vy, vw, vh = best_pos
-        mask[vy:vy + vh, vx:vx + vw] = 0  # Zero out covered cells
+        mask[vy:vy + vh, vx:vx + vw] = 0
 
     return viewports
 
 
 def allocate_query_budget(seed_plans, total_budget):
-    """
-    Distribute queries across seeds proportional to dynamic cell count.
-    Minimum 7 per seed, rest distributed proportionally.
-    """
+    """Distribute queries across seeds proportional to dynamic cell count."""
     n_seeds = len(seed_plans)
-    min_per_seed = max(1, total_budget // (n_seeds * 2))  # at least ~5
+    min_per_seed = max(1, total_budget // (n_seeds * 2))
     remaining = total_budget - min_per_seed * n_seeds
 
-    # Weight by number of dynamic cells
     dynamic_counts = []
     for _, _, priority in seed_plans:
         dynamic_counts.append(int((priority > 0).sum()))
@@ -236,7 +239,6 @@ def allocate_query_budget(seed_plans, total_budget):
         extra = int(remaining * dynamic_counts[i] / total_dynamic)
         budgets.append(min_per_seed + extra)
 
-    # Distribute any rounding remainder
     leftover = total_budget - sum(budgets)
     for i in range(leftover):
         budgets[i % n_seeds] += 1
@@ -245,14 +247,10 @@ def allocate_query_budget(seed_plans, total_budget):
 
 
 def allocate_queries_to_viewports(viewports, priority, budget):
-    """
-    Distribute a seed's query budget across its viewports,
-    weighted by the priority score each viewport covers.
-    """
+    """Distribute a seed's query budget across its viewports."""
     if not viewports:
         return []
 
-    # Score each viewport by its dynamic cell coverage
     scores = []
     for vx, vy, vw, vh in viewports:
         score = priority[vy:vy + vh, vx:vx + vw].sum()
@@ -266,7 +264,6 @@ def allocate_queries_to_viewports(viewports, priority, budget):
         allocation.append((vp, count))
         assigned += count
 
-    # Distribute remainder to highest-scoring viewports
     leftover = budget - assigned
     sorted_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
     for i in range(max(0, leftover)):
@@ -277,15 +274,170 @@ def allocate_queries_to_viewports(viewports, priority, budget):
     return allocation
 
 
-# ─── Phase 2: Cross-seed learning ─────────────────────────────────────────────
+# ─── Feature-based prior model ────────────────────────────────────────────────
+
+def load_feature_prior_model():
+    """Load the feature-based prior model built from ground truth."""
+    model_file = MODELS_DIR / "feature_prior_model.npz"
+    if not model_file.exists():
+        print("  WARNING: feature_prior_model.npz not found, falling back to uniform")
+        return None, None
+
+    data = np.load(model_file)
+
+    full_model = {}
+    for key, val in zip(data["full_keys"], data["full_vals"]):
+        full_model[tuple(key)] = val
+
+    simple_model = {}
+    for key, val in zip(data["simple_keys"], data["simple_vals"]):
+        simple_model[tuple(key)] = val
+
+    print(f"  Loaded feature prior model: {len(full_model)} full + {len(simple_model)} simple buckets")
+    return full_model, simple_model
+
+
+def compute_cell_features(grid, y, x, H, W, settlement_positions):
+    """Compute features for a cell: (initial_cls, dist, n_sn, n_r5, ocean, n_forest)."""
+    initial_cls = TERRAIN_TO_CLASS.get(grid[y][x], 0)
+
+    n_sn = 0
+    n_forest_n = 0
+    has_ocean = False
+    for dy in [-1, 0, 1]:
+        for dx in [-1, 0, 1]:
+            if dy == 0 and dx == 0:
+                continue
+            ny, nx = y + dy, x + dx
+            if 0 <= ny < H and 0 <= nx < W:
+                ncls = TERRAIN_TO_CLASS.get(grid[ny][nx], 0)
+                if ncls in (1, 2):
+                    n_sn += 1
+                if ncls == 4:
+                    n_forest_n += 1
+                if grid[ny][nx] == 10:
+                    has_ocean = True
+
+    min_dist = 999
+    n_r5 = 0
+    for sy, sx in settlement_positions:
+        dist = abs(y - sy) + abs(x - sx)
+        if dist < min_dist:
+            min_dist = dist
+        if dist <= 5:
+            n_r5 += 1
+
+    return (initial_cls, min(min_dist, 15), min(n_sn, 3), min(n_r5, 6),
+            1 if has_ocean else 0, min(n_forest_n, 4))
+
+
+def get_feature_prior(grid, y, x, H, W, settlement_positions, full_model, simple_model):
+    """Get prior distribution for a cell using the feature-based model."""
+    initial_cls = TERRAIN_TO_CLASS.get(grid[y][x], 0)
+    feat = compute_cell_features(grid, y, x, H, W, settlement_positions)
+
+    if full_model and feat in full_model:
+        return full_model[feat].copy()
+
+    simple_key = (feat[0], feat[1])
+    if simple_model and simple_key in simple_model:
+        return simple_model[simple_key].copy()
+
+    # Last resort fallback
+    prior = np.full(NUM_CLASSES, 0.005)
+    prior[initial_cls] = 0.97
+    prior /= prior.sum()
+    return prior
+
+
+def compute_all_priors(grid, H, W, full_model, simple_model):
+    """Compute feature-based priors for all cells. Returns H×W×6 array."""
+    settlement_positions = []
+    for sy in range(H):
+        for sx in range(W):
+            if TERRAIN_TO_CLASS.get(grid[sy][sx], 0) in (1, 2):
+                settlement_positions.append((sy, sx))
+
+    priors = np.zeros((H, W, NUM_CLASSES), dtype=np.float64)
+    for y in range(H):
+        for x in range(W):
+            priors[y][x] = get_feature_prior(grid, y, x, H, W, settlement_positions,
+                                              full_model, simple_model)
+    return priors
+
+
+# ─── Cross-seed global adjustment ─────────────────────────────────────────────
+
+def compute_global_adjustments(grids, all_observations, H, W, priors_per_seed):
+    """
+    Pool observations across ALL seeds to compute per-initial-class scaling factors.
+    This detects the round's "regime" (harsh vs expansion) from observed transition rates.
+    Returns NUM_CLASSES × NUM_CLASSES adjustment matrix.
+    """
+    obs_class_dist = np.zeros((NUM_CLASSES, NUM_CLASSES))
+    obs_class_counts = np.zeros(NUM_CLASSES)
+    prior_class_dist = np.zeros((NUM_CLASSES, NUM_CLASSES))
+    prior_class_counts = np.zeros(NUM_CLASSES)
+
+    for seed_idx in range(len(grids)):
+        grid = grids[seed_idx]
+        observations = all_observations.get(seed_idx, [])
+        if not observations or grid is None:
+            continue
+        priors = priors_per_seed[seed_idx]
+
+        for obs in observations:
+            vp = obs["viewport"]
+            og = obs["grid"]
+            vx, vy = vp["x"], vp["y"]
+            for ry, row in enumerate(og):
+                for rx, val in enumerate(row):
+                    gx, gy = vx + rx, vy + ry
+                    if 0 <= gx < W and 0 <= gy < H:
+                        initial_cls = TERRAIN_TO_CLASS.get(grid[gy][gx], 0)
+                        final_cls = TERRAIN_TO_CLASS.get(val, 0)
+                        obs_class_dist[initial_cls][final_cls] += 1
+                        obs_class_counts[initial_cls] += 1
+                        prior_class_dist[initial_cls] += priors[gy][gx]
+                        prior_class_counts[initial_cls] += 1
+
+    # Normalize
+    for cls in range(NUM_CLASSES):
+        if obs_class_counts[cls] > 0:
+            obs_class_dist[cls] /= obs_class_counts[cls]
+        if prior_class_counts[cls] > 0:
+            prior_class_dist[cls] /= prior_class_counts[cls]
+
+    # Compute adjustment ratios: observed / predicted
+    adjustments = np.ones((NUM_CLASSES, NUM_CLASSES))
+    for init_cls in range(NUM_CLASSES):
+        if obs_class_counts[init_cls] >= 20:
+            for final_cls in range(NUM_CLASSES):
+                if prior_class_dist[init_cls][final_cls] > 0.01:
+                    ratio = obs_class_dist[init_cls][final_cls] / prior_class_dist[init_cls][final_cls]
+                    adjustments[init_cls][final_cls] = np.clip(ratio, 0.2, 5.0)
+
+    # Log detected regime
+    ss_obs = obs_class_dist[1][1] if obs_class_counts[1] > 0 else -1
+    es_obs = obs_class_dist[0][1] if obs_class_counts[0] > 0 else -1
+    print(f"  Regime detection: S→S={ss_obs:.3f}, E→S={es_obs:.3f} "
+          f"(S_obs={int(obs_class_counts[1])}, E_obs={int(obs_class_counts[0])})")
+    if ss_obs >= 0:
+        if ss_obs < 0.15:
+            print(f"  Detected regime: HARSH (settlements mostly die)")
+        elif ss_obs < 0.40:
+            print(f"  Detected regime: MODERATE")
+        else:
+            print(f"  Detected regime: EXPANSION (settlements thrive)")
+
+    return adjustments
+
+
+# ─── Phase 2: Cross-seed transition learning ─────────────────────────────────
 
 def learn_transition_model(seed_plans, all_observations, width, height):
-    """
-    Pool observations across all seeds to learn P(final_class | initial_class).
-    Returns a NUM_CLASSES x NUM_CLASSES matrix where row = initial, col = final.
-    """
-    # Count transitions: transitions[initial_cls][final_cls] = count
-    transitions = np.ones((NUM_CLASSES, NUM_CLASSES), dtype=np.float64)  # Laplace smoothing
+    """Pool observations across all seeds to learn P(final_class | initial_class)."""
+    transitions = np.ones((NUM_CLASSES, NUM_CLASSES), dtype=np.float64)
 
     for seed_idx, (grid, _, _) in enumerate(seed_plans):
         for obs in all_observations.get(seed_idx, []):
@@ -302,17 +454,24 @@ def learn_transition_model(seed_plans, all_observations, width, height):
                         final_cls = TERRAIN_TO_CLASS.get(cell_val, 0)
                         transitions[initial_cls][final_cls] += 1
 
-    # Normalize rows to get probabilities
     row_sums = transitions.sum(axis=1, keepdims=True)
     transition_probs = transitions / row_sums
-
     return transition_probs
 
 
-# ─── Phase 3: Bayesian prediction building ────────────────────────────────────
+# ─── Phase 3: Prediction building (v3) ───────────────────────────────────────
 
-def count_observations(observations, width, height):
-    """Count terrain class occurrences per cell from observations."""
+def build_prediction_v3(width, height, initial_grid, observations,
+                        priors, adjustments, concentration=CONCENTRATION):
+    """
+    Build H×W×6 probability tensor using feature-based priors + global adjustment.
+
+    For each cell:
+    1. Start with feature-based prior (trained on 17 rounds of ground truth)
+    2. Apply global adjustment (learned from this round's cross-seed observations)
+    3. If cell has direct observations: Bayesian update with Dirichlet posterior
+    """
+    # Count per-cell observations
     obs_counts = np.zeros((height, width, NUM_CLASSES), dtype=np.float64)
     obs_total = np.zeros((height, width), dtype=np.float64)
 
@@ -330,94 +489,31 @@ def count_observations(observations, width, height):
                     obs_counts[gy][gx][cls] += 1
                     obs_total[gy][gx] += 1
 
-    return obs_counts, obs_total
-
-
-def load_cumulative_priors():
-    """Load cumulative models from past rounds if available."""
-    transition_file = MODELS_DIR / "transition_model.npy"
-    neighborhood_file = MODELS_DIR / "neighborhood_model.npy"
-
-    cumulative_transition = None
-    neighborhood_model = None
-
-    if transition_file.exists():
-        cumulative_transition = np.load(transition_file)
-        print(f"  Loaded cumulative transition model from {len(list(MODELS_DIR.glob('*.npy')))} model files")
-    if neighborhood_file.exists():
-        neighborhood_model = np.load(neighborhood_file)
-        print(f"  Loaded neighborhood model")
-
-    return cumulative_transition, neighborhood_model
-
-
-def count_settlement_neighbors(initial_grid, x, y, width, height):
-    """Count settlement/port neighbors (8-connected) for a cell."""
-    count = 0
-    for dy in [-1, 0, 1]:
-        for dx in [-1, 0, 1]:
-            if dy == 0 and dx == 0:
-                continue
-            ny, nx = y + dy, x + dx
-            if 0 <= ny < height and 0 <= nx < width:
-                ncls = TERRAIN_TO_CLASS.get(initial_grid[ny][nx], 0)
-                if ncls in (1, 2):  # Settlement or Port
-                    count += 1
-    return min(count, 8)
-
-
-def build_prediction_bayesian(width, height, initial_grid, observations,
-                               transition_priors, concentration=20.0,
-                               cumulative_priors=None, neighborhood_model=None):
-    """
-    Build H x W x 6 probability tensor using Bayesian estimation.
-
-    - Static cells: high confidence on initial class
-    - Dynamic cells with observations: Dirichlet-multinomial posterior
-    - Dynamic cells without observations: neighborhood-aware or cross-seed priors
-    """
-    obs_counts, obs_total = count_observations(observations, width, height)
     prediction = np.zeros((height, width, NUM_CLASSES), dtype=np.float64)
 
     for y in range(height):
         for x in range(width):
             initial_cls = TERRAIN_TO_CLASS.get(initial_grid[y][x], 0)
+
+            # Apply global adjustment to feature prior
+            adjusted_prior = priors[y][x] * adjustments[initial_cls]
+            adjusted_prior = np.maximum(adjusted_prior, 0.003)
+            adjusted_prior /= adjusted_prior.sum()
+
+            # Blend adjusted and unadjusted priors
+            blended = OBS_WEIGHT * adjusted_prior + (1 - OBS_WEIGHT) * priors[y][x]
+
             n_obs = obs_total[y][x]
-
-            if initial_cls in STATIC_CLASSES and n_obs == 0:
-                # Static cell, no observations needed — high confidence
-                prediction[y][x][initial_cls] = 0.97
-                leftover = 0.03 / (NUM_CLASSES - 1)
-                for c in range(NUM_CLASSES):
-                    if c != initial_cls:
-                        prediction[y][x][c] = leftover
-
-            elif n_obs > 0:
-                # Bayesian: Dirichlet posterior = prior + observations
-                # Use best available prior
-                if cumulative_priors is not None:
-                    alpha = cumulative_priors[initial_cls] * concentration
-                else:
-                    alpha = transition_priors[initial_cls] * concentration
+            if n_obs > 0:
+                # Bayesian update: Dirichlet posterior = prior × concentration + observations
+                alpha = blended * concentration
                 posterior = obs_counts[y][x] + alpha
                 prediction[y][x] = posterior / posterior.sum()
-
             else:
-                # Dynamic cell with no observations
-                # Use neighborhood model if available (best), else transition priors
-                if neighborhood_model is not None:
-                    n_neighbors = count_settlement_neighbors(
-                        initial_grid, x, y, width, height
-                    )
-                    prediction[y][x] = neighborhood_model[initial_cls][n_neighbors]
-                elif cumulative_priors is not None:
-                    prediction[y][x] = cumulative_priors[initial_cls]
-                else:
-                    prediction[y][x] = transition_priors[initial_cls]
+                prediction[y][x] = blended
 
-    # Enforce minimum probability floor to avoid infinite KL divergence
-    min_floor = 0.005
-    prediction = np.maximum(prediction, min_floor)
+    # Enforce probability floor
+    prediction = np.maximum(prediction, MIN_FLOOR)
     prediction = prediction / prediction.sum(axis=-1, keepdims=True)
 
     return prediction
@@ -438,17 +534,26 @@ def play_round(session: requests.Session, round_id: str, detail: dict, round_num
     queries_left = budget["queries_max"] - budget["queries_used"]
     print(f"Queries available: {queries_left}")
 
-    # ── Load cumulative priors from past rounds ──
-    cumulative_priors, neighborhood_model = load_cumulative_priors()
+    # ── Load feature-based prior model ──
+    print("\n=== Loading models ===")
+    full_model, simple_model = load_feature_prior_model()
 
     # ── Phase 0: Analyze all seeds ──
     print("\n=== Phase 0: Analyzing initial states ===")
     seed_plans = []  # (grid, viewports, priority)
+    grids = []
+    all_priors = []
+
     for seed_idx in range(seeds_count):
         grid = initial_states[seed_idx]["grid"]
         priority = classify_cells(grid, width, height)
         viewports = compute_optimal_viewports(priority, width, height, max_viewports=5)
         seed_plans.append((grid, viewports, priority))
+        grids.append(grid)
+
+        # Compute feature priors for this seed
+        priors = compute_all_priors(grid, height, width, full_model, simple_model)
+        all_priors.append(priors)
 
         n_dynamic = int((priority > 0).sum())
         n_settlements = int((priority == 3).sum())
@@ -456,14 +561,12 @@ def play_round(session: requests.Session, round_id: str, detail: dict, round_num
               f"{n_dynamic} dynamic cells, {len(viewports)} viewports needed")
 
     if queries_left == 0:
-        print("\nNo queries left! Submitting with cross-seed priors only.")
-        transition_priors = np.full((NUM_CLASSES, NUM_CLASSES), 1.0 / NUM_CLASSES)
+        print("\nNo queries left! Submitting with feature priors only.")
+        identity_adj = np.ones((NUM_CLASSES, NUM_CLASSES))
         for seed_idx in range(seeds_count):
-            grid = seed_plans[seed_idx][0]
-            pred = build_prediction_bayesian(width, height, grid, [],
-                                              transition_priors,
-                                              cumulative_priors=cumulative_priors,
-                                              neighborhood_model=neighborhood_model)
+            pred = build_prediction_v3(width, height, grids[seed_idx], [],
+                                        all_priors[seed_idx], identity_adj)
+            save_predictions(round_number, seed_idx, pred)
             submit_prediction(session, round_id, seed_idx, pred)
         return
 
@@ -502,7 +605,7 @@ def play_round(session: requests.Session, round_id: str, detail: dict, round_num
         print(f"  Total: {query_count} queries used, {len(observations)} observations")
 
     # ── Phase 2: Cross-seed learning ──
-    print("\n=== Phase 2: Learning transition model ===")
+    print("\n=== Phase 2: Cross-seed regime detection ===")
     transition_priors = learn_transition_model(seed_plans, all_observations, width, height)
 
     print("  Transition probabilities (initial → final):")
@@ -511,49 +614,23 @@ def play_round(session: requests.Session, round_id: str, detail: dict, round_num
         top3_str = ", ".join(f"{CLASSES[c]}={transition_priors[i][c]:.2f}" for c in top3)
         print(f"    {cls_name:10s} → {top3_str}")
 
+    # Compute global adjustments from pooled observations
+    print("\n  Computing global adjustments...")
+    adjustments = compute_global_adjustments(grids, all_observations, height, width, all_priors)
+
     # ── Save observation data ──
     print("\n=== Saving round data ===")
     save_round_data(round_number, round_id, detail, all_observations, transition_priors)
 
-    # NOTE: Local simulator blending disabled — it was degrading scores
-    # (Round 3-4 scored ~62 without it, Round 5-7 scored ~20 with it)
-    # TODO: Re-enable once simulator is properly calibrated against ground truth
-    sim_predictions = {}
-
     # ── Phase 3: Build and submit predictions ──
     print("\n=== Phase 3: Building and submitting predictions ===")
     for seed_idx in range(seeds_count):
-        grid = seed_plans[seed_idx][0]
-
-        # Build Bayesian prediction from observations
-        pred = build_prediction_bayesian(
-            width, height, grid,
+        pred = build_prediction_v3(
+            width, height, grids[seed_idx],
             all_observations[seed_idx],
-            transition_priors,
-            cumulative_priors=cumulative_priors,
-            neighborhood_model=neighborhood_model,
+            all_priors[seed_idx],
+            adjustments,
         )
-
-        # Blend with simulator predictions if available
-        if seed_idx in sim_predictions:
-            sim_pred = sim_predictions[seed_idx]
-            # Weight: observations are more trustworthy for observed cells,
-            # simulator fills in unobserved cells
-            obs_counts, obs_total = count_observations(
-                all_observations[seed_idx], width, height
-            )
-            for y in range(height):
-                for x in range(width):
-                    if obs_total[y][x] == 0:
-                        # No observations — use 70% sim, 30% prior
-                        pred[y][x] = 0.7 * sim_pred[y][x] + 0.3 * pred[y][x]
-                    else:
-                        # Have observations — use 30% sim, 70% observation-based
-                        pred[y][x] = 0.3 * sim_pred[y][x] + 0.7 * pred[y][x]
-
-            # Re-floor and renormalize
-            pred = np.maximum(pred, 0.005)
-            pred = pred / pred.sum(axis=-1, keepdims=True)
 
         save_predictions(round_number, seed_idx, pred)
         submit_prediction(session, round_id, seed_idx, pred)
@@ -577,7 +654,7 @@ def load_env():
 
 def main():
     load_env()
-    parser = argparse.ArgumentParser(description="Astar Island round player (v2)")
+    parser = argparse.ArgumentParser(description="Astar Island round player (v3)")
     parser.add_argument("--token", default=os.environ.get("ASTAR_TOKEN"),
                         help="JWT token (default: from .env)")
     parser.add_argument("--dry-run", action="store_true",
