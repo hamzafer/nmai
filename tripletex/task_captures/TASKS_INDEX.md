@@ -1,8 +1,8 @@
 # Tripletex Task Index
 
-**Last updated:** 2026-03-21 18:59
+**Last updated:** 2026-03-21 19:01
 **Total unique task types seen:** 21 of 30
-**Total real submissions analyzed:** 51
+**Total real submissions analyzed:** 52
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -35,7 +35,7 @@
 | PROJECT_CREATE | PERFECT | 4/4 | No | 6 |
 | CREDIT_NOTE | PERFECT | 7/7 | No | 2 |
 | PAYROLL | PARTIAL | 3/10 | No | 1 |
-| TRAVEL_EXPENSE | PARTIAL | 1/10 | No | 1 |
+| TRAVEL_EXPENSE | PARTIAL | 9/9 calls OK, 4.5/8 score | No | 2 |
 | SUPPLIER_INVOICE | PARTIAL | 3/5 | Yes (PDF) | 2 |
 | TIME_TRACKING | PARTIAL | 5/13 | No | 1 |
 | PROJECT_FIXED_PRICE | PARTIAL | 7/12 | No | 1 |
@@ -54,6 +54,7 @@
 |-----------|--------|-------------|-----------|----------|
 | YEAR_END_CLOSING | PARTIAL | 13/17 | No | 1 |
 | PDF_EMPLOYEE_CONTRACT | PARTIAL | 4/8 | Yes (PDF) | 2 |
+| BANK_RECONCILIATION_CSV | FAILED | 0/10 | Yes (CSV) | 1 |
 
 ## Not Yet Identified (13 remaining task types)
 
@@ -85,6 +86,8 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 18:15 | 20260321_181500.md | DEPARTMENTS_CREATE | 7/7 (100%) | PERFECT — 3 POST /department, 0 errors, 10s |
 | 2026-03-21 18:47 | 20260321_184700.md | ORDER_MULTI_PRODUCT_INVOICE_PAY | 0/8 (0%) | Everything OK except payment: used `:payment` instead of `:createPayment` |
 | 2026-03-21 18:54 | 20260321_185400.md | TIME_TRACKING_PROJECT_INVOICE | 4/8 (50%) | Activity already exists (GET first), employment needs DOB, project invoice 404 |
+| 2026-03-21 18:57 | 20260321_185700.md | BANK_RECONCILIATION_CSV | 0/10 (0%) | CSV read but invoice lookup by number returned empty, all payments skipped |
+| 2026-03-21 19:01 | 20260321_190100.md | TRAVEL_EXPENSE | 4.5/8 (56%) | ALL 9 calls OK! Score low due to field values (rate/cost categories, dates) |
 
 ---
 
