@@ -68,13 +68,15 @@ POST /supplierInvoice — Register a supplier/vendor invoice (incoming invoice)
   Required: supplier ({"id": N}), invoiceNumber (string), invoiceDate (YYYY-MM-DD), invoiceDueDate (YYYY-MM-DD)
   NOTE: Use "invoiceDueDate" NOT "dueDate" — "dueDate" doesn't exist on this endpoint.
   Required: voucher with BALANCED postings (MUST have both debit AND credit — single posting WILL fail):
+    NOTE: For supplier invoice postings, use "amountGross" and "amountGrossCurrency" (NOT "amount"!).
     - DEBIT: expense account for NET amount (positive), with input vatType
-      {"account": {"id": EXPENSE_ACCT_ID}, "amount": NET_AMOUNT, "vatType": {"id": 11}, "description": "..."}
+      {"account": {"id": EXPENSE_ACCT_ID}, "amountGross": NET_AMOUNT, "amountGrossCurrency": NET_AMOUNT, "vatType": {"id": 11}, "description": "..."}
     - CREDIT: accounts payable (2400) for GROSS amount (NEGATIVE), NO vatType
-      {"account": {"id": AP_ACCT_ID}, "amount": -GROSS_AMOUNT, "description": "..."}
+      {"account": {"id": AP_ACCT_ID}, "amountGross": -GROSS_AMOUNT, "amountGrossCurrency": -GROSS_AMOUNT, "description": "..."}
   Tripletex auto-generates the VAT posting when vatType is set on the debit line.
-  Example: 67050 net + 25% VAT = 83812.50 gross → debit 67050, credit -83812.50. Tripletex adds VAT automatically.
+  Example: 67050 net + 25% VAT = 83812.50 gross → debit amountGross=67050, credit amountGross=-83812.50.
   CRITICAL: A single posting WILL fail with "credit posting missing". You MUST send BOTH lines.
+  CRITICAL: Use "amountGross"/"amountGrossCurrency", NOT "amount" — supplier invoice postings ignore "amount".
 
   Input VAT types (inngående avgift — use these directly, NEVER GET /ledger/vatType):
     - {"id": 11} = 25% input VAT (Fradrag inngående avgift, høy sats)
@@ -219,6 +221,14 @@ GET /ledger/account — Query chart of accounts
 GET /ledger/posting — Query ledger postings
 GET /ledger/paymentType — List payment types (for paymentTypeId in payment registration)
 
+FREE ACCOUNTING DIMENSIONS ("fri regnskapsdimensjon" / "close groups"):
+  WARNING: POST /ledger/closeGroup returns 405 — creation via API may not be supported.
+  Try these approaches in order:
+  1. GET /ledger/closeGroup?count=100 to see if dimensions already exist in the sandbox
+  2. If no close group exists, try POST /department with the dimension name as a workaround
+  3. For voucher postings with dimension values, add "department": {"id": N} to each posting
+  This is a KNOWN LIMITATION — we cannot create free dimensions via the API currently.
+
 POST /ledger/voucher — Create a journal entry / voucher
   Required: date (YYYY-MM-DD), description (string)
   Required: postings (array) — NOT "voucherLines" (that field does NOT exist!)
@@ -308,18 +318,18 @@ Pattern 6 — Register a supplier:
 ]
 ```
 
-Pattern 8 — Register supplier invoice from PDF (with balanced voucher postings):
+Pattern 8 — Register supplier invoice (with balanced voucher postings):
 ```json
 [
   {"method": "POST", "path": "/supplier", "body": {"name": "Silveroak Ltd", "email": "faktura@silveroak.no", "organizationNumber": "945217456"}, "description": "Create supplier"},
-  {"method": "GET", "path": "/ledger/account?numberFrom=6340&numberTo=6350&count=10", "body": null, "description": "Look up expense account 6340"},
+  {"method": "GET", "path": "/ledger/account?numberFrom=6340&numberTo=6350&count=10", "body": null, "description": "Look up expense account"},
   {"method": "GET", "path": "/ledger/account?numberFrom=2400&numberTo=2410&count=10", "body": null, "description": "Look up accounts payable (2400)"},
-  {"method": "POST", "path": "/supplierInvoice", "body": {"supplier": {"id": "{result_0_id}"}, "invoiceNumber": "INV-2026-5539", "invoiceDate": "2026-02-28", "invoiceDueDate": "2026-03-30", "voucher": {"date": "2026-02-28", "description": "Sikkerhetsprogramvare", "postings": [{"account": {"id": "{result_1_id}"}, "amount": 67050, "vatType": {"id": 11}, "description": "Sikkerhetsprogramvare"}, {"account": {"id": "{result_2_id}"}, "amount": -83812.50, "description": "Accounts payable"}]}}, "description": "Register supplier invoice with balanced postings"}
+  {"method": "POST", "path": "/supplierInvoice", "body": {"supplier": {"id": "{result_0_id}"}, "invoiceNumber": "INV-2026-5539", "invoiceDate": "2026-02-28", "invoiceDueDate": "2026-03-30", "voucher": {"date": "2026-02-28", "description": "Sikkerhetsprogramvare", "postings": [{"account": {"id": "{result_1_id}"}, "amountGross": 67050, "amountGrossCurrency": 67050, "vatType": {"id": 11}, "description": "Sikkerhetsprogramvare"}, {"account": {"id": "{result_2_id}"}, "amountGross": -83812.50, "amountGrossCurrency": -83812.50, "description": "Leverandørgjeld"}]}}, "description": "Register supplier invoice with balanced postings"}
 ]
 ```
+CRITICAL: Use "amountGross" and "amountGrossCurrency" — NOT "amount"! Supplier invoice postings IGNORE "amount".
 NOTE: vatType {"id": 11} = 25% input VAT. Use directly — NEVER GET /ledger/vatType.
-NOTE: Debit expense NET amount WITH vatType. Credit AP GROSS amount (negative, NO vatType).
-NOTE: Tripletex auto-generates VAT posting from vatType. Send only 2 postings: [debit_net, credit_gross].
+NOTE: Debit expense NET amountGross WITH vatType. Credit AP GROSS amountGross (negative, NO vatType).
 NOTE: Use numberFrom/numberTo for account lookup — exact number queries may return 422.
 
 Pattern 7 — Run payroll (salary + optional bonus):
@@ -535,6 +545,16 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                         continue
             except Exception:
                 pass  # Fall through to normal POST
+
+        # Auto-fix: supplier invoice postings must use amountGross, not amount
+        if method == "POST" and "/supplierInvoice" in path and body:
+            voucher = body.get("voucher", {})
+            postings = voucher.get("postings", [])
+            for posting in postings:
+                if "amount" in posting and "amountGross" not in posting:
+                    posting["amountGross"] = posting.pop("amount")
+                    posting["amountGrossCurrency"] = posting.get("amountGrossCurrency", posting["amountGross"])
+                    print(f"  [{i}] AUTO-FIX: converted amount→amountGross in supplierInvoice posting")
 
         url = f"{base_url}{path}"
         print(f"  [{i}] {method} {path} — {desc}")
@@ -980,9 +1000,10 @@ Common issues:
   Each spec: {{"salaryType": {{"id": N}}, "rate": N, "count": 1, "amount": N}}
   GET /salary/type first to find valid IDs. "Fastlønn" = base salary.
 - If nationalIdentityNumber caused 422 ("Ugyldig format"), OMIT it — create employee without it.
-- If supplierInvoice returns "credit posting missing": you only sent 1 posting. You MUST send 2:
-  DEBIT: expense account NET amount with vatType {{"id": 11}} (25% input VAT)
-  CREDIT: AP account (2400) GROSS amount as NEGATIVE, NO vatType
+- If supplierInvoice returns "credit posting missing": use "amountGross"/"amountGrossCurrency" NOT "amount"!
+  Supplier invoice postings IGNORE "amount" field — you MUST use amountGross/amountGrossCurrency.
+  DEBIT: {{"account": {{"id": N}}, "amountGross": NET, "amountGrossCurrency": NET, "vatType": {{"id": 11}}, "description": "..."}}
+  CREDIT: {{"account": {{"id": AP_ID}}, "amountGross": -GROSS, "amountGrossCurrency": -GROSS, "description": "..."}}
   Use numberFrom/numberTo for account lookups. Hardcode vatType {{"id": 11}} for 25%.
 - If GET /ledger/account?number=N returns 422, use range search instead:
   GET /ledger/account?numberFrom=N&numberTo=N+10&count=10
