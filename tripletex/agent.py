@@ -82,13 +82,13 @@ POST /supplierInvoice — Register a supplier/vendor invoice (incoming invoice)
   Required: supplier ({"id": N}), invoiceNumber (string), invoiceDate (YYYY-MM-DD), invoiceDueDate (YYYY-MM-DD)
   NOTE: Use "invoiceDueDate" NOT "dueDate" — "dueDate" doesn't exist on this endpoint.
   Required: voucher with BALANCED postings (MUST have both debit AND credit — single posting WILL fail):
-  Use SAME posting format as ledger voucher — "row", "amountGross", "amountGrossCurrency":
-    - DEBIT: {"row": 1, "account": {"id": EXPENSE_ID}, "amountGross": NET_AMOUNT, "amountGrossCurrency": NET_AMOUNT, "description": "...", "vatType": {"id": 11}}
-    - CREDIT: {"row": 1, "account": {"id": AP_ID}, "amountGross": -GROSS_AMOUNT, "amountGrossCurrency": -GROSS_AMOUNT, "description": "..."}
+    - DEBIT: {"account": {"id": EXPENSE_ID}, "amount": NET_AMOUNT, "description": "...", "vatType": {"id": 11}}
+    - CREDIT: {"account": {"id": AP_ID}, "amount": -GROSS_AMOUNT, "description": "..."}
+  Use "amount" field (positive=debit, negative=credit). Do NOT use "amountGross" or "row" on supplier invoices.
   Tripletex auto-generates the VAT posting when vatType is set on the debit line.
-  Full example: {"voucher": {"date": "2026-01-15", "description": "Invoice from X", "postings": [
-    {"row": 1, "account": {"id": 123}, "amountGross": 67050, "amountGrossCurrency": 67050, "description": "Expense", "vatType": {"id": 11}},
-    {"row": 1, "account": {"id": 456}, "amountGross": -83812.50, "amountGrossCurrency": -83812.50, "description": "AP"}]}}
+  Example: {"voucher": {"date": "2026-01-15", "description": "Invoice from X", "postings": [
+    {"account": {"id": 123}, "amount": 67050, "description": "Expense", "vatType": {"id": 11}},
+    {"account": {"id": 456}, "amount": -83812.50, "description": "AP"}]}}
 
   Input VAT types (inngående avgift — use these directly, NEVER GET /ledger/vatType):
     - {"id": 11} = 25% input VAT (Fradrag inngående avgift, høy sats)
@@ -174,8 +174,7 @@ PUT /invoice/{id}/:createPayment — Register payment on an invoice
   IMPORTANT: paymentTypeId MUST be 1 (never 0). Amount must be total INCLUDING VAT.
   If task says "9400 NOK excl VAT" with 25% MVA, pay 11750 (9400 * 1.25).
   Use the invoice response "amount" field directly — it already includes VAT.
-  DO NOT use /:payment (returns 404!). Use /:createPayment instead.
-  If :createPayment returns 500, the fallback system will try alternative endpoints automatically.
+  If :createPayment returns 404/500, the fallback system will automatically try `:payment` and `:pay` alternatives.
 
   CRITICAL PATTERN FOR PAYMENT TASKS:
   When the task says "has an unpaid invoice" / "har en faktura" / "a une facture impayée" / "tiene una factura":
@@ -249,6 +248,9 @@ POST /travelExpense/perDiemCompensation — Add daily allowance to travel expens
   Optional: rateCategory ({"id": N}), count (int = number of days), rate (number), amount (number)
   Optional: isDeductionForBreakfast (bool), isDeductionForLunch (bool), isDeductionForDinner (bool)
   To find rate categories: GET /travelExpense/rateCategory
+  RATE SELECTION: For multi-day trips (2+ days with overnight), use overnight rate ("Døgn"/"Overnatting").
+  For day trips, use "Dagsreise" rate. Override the rate amount to match task-specified daily rate.
+  Set count = number of days. Set rate = task's daily rate. Set amount = count × rate.
 
 POST /travelExpense/cost — Add individual expense to travel report
   Required: travelExpense ({"id": N}), costCategory ({"id": N}), paymentType ({"id": N}), amountCurrencyIncVat (number), date (YYYY-MM-DD)
@@ -394,11 +396,11 @@ Pattern 5 — Create invoice + register payment:
   {"method": "POST", "path": "/product", "body": {"name": "Service", "priceExcludingVatCurrency": 10000, "vatType": {"id": 3}}, "description": "Create product"},
   {"method": "POST", "path": "/order", "body": {"customer": {"id": "{result_2_id}"}, "deliveryDate": "2026-01-15", "orderDate": "2026-01-15", "orderLines": [{"product": {"id": "{result_3_id}"}, "count": 1}]}, "description": "Create order"},
   {"method": "PUT", "path": "/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15", "body": {}, "description": "Convert order to invoice", "depends_on": 4},
-  {"method": "PUT", "path": "/invoice/{prev_id}/:payment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=12500&paidAmountCurrency=12500", "body": {}, "description": "Register full payment", "depends_on": 5}
+  {"method": "PUT", "path": "/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=12500&paidAmountCurrency=12500", "body": {}, "description": "Register full payment", "depends_on": 5}
 ]
 ```
 NOTE: paidAmount must be the invoice total INCLUDING VAT. Calculate: excl_vat * 1.25 for 25% MVA.
-NOTE: paymentTypeId MUST be 1. Use :payment NOT :createPayment.
+NOTE: paymentTypeId MUST be 1. If :createPayment returns 404, the auto-fix retries with alternative endpoints.
 
 Pattern 6 — Register a supplier:
 ```json
@@ -1501,9 +1503,10 @@ Common issues:
   {{"method": "PUT", "path": "/order/ID/:invoice?invoiceDate=YYYY-MM-DD&invoiceDueDate=YYYY-MM-DD", "body": {{}}}}
 - If task says "send"/"sende"/"senden"/"envoyer"/"enviar" but invoice was created without sending:
   PUT /invoice/INVOICE_ID/:send?sendType=EMAIL with body: {{}}
-- For payment: PUT /invoice/{id}/:payment?paymentDate=YYYY-MM-DD&paymentTypeId=1&paidAmount=N&paidAmountCurrency=N
-  DO NOT use :createPayment (404). DO NOT try GET /ledger/paymentType (404).
+- For payment: PUT /invoice/{id}/:createPayment?paymentDate=YYYY-MM-DD&paymentTypeId=1&paidAmount=N&paidAmountCurrency=N
+  DO NOT try GET /ledger/paymentType (404 through proxy).
   paymentTypeId MUST be 1 (not 0). paidAmount must INCLUDE VAT (use invoice "amount" field).
+  If 404, the auto-fix retries with `:payment` and `:pay` alternatives.
 - "Feltet eksisterer ikke i objektet" on /employee/employment = remove "employmentType" (doesn't exist).
   Only valid fields: employee, startDate, endDate, percentOfFullTimeEquivalent, occupationCode.
 - For payslip: field is "specifications" NOT "payslipSpecifications".
@@ -1513,15 +1516,16 @@ Common issues:
 - "Navnet er i bruk" on POST /activity = activity already exists. GET /activity?name=X to find its ID.
 - "employee.dateOfBirth: Feltet må fylles ut" on /employee/employment = employee needs dateOfBirth.
   PUT /employee/ID with dateOfBirth field, then retry employment creation.
-- If supplierInvoice returns "credit posting missing": use "amountGross"/"amountGrossCurrency" NOT "amount"!
-  Supplier invoice postings IGNORE "amount" field — you MUST use amountGross/amountGrossCurrency.
-  DEBIT: {{"account": {{"id": N}}, "amountGross": NET, "amountGrossCurrency": NET, "vatType": {{"id": 11}}, "description": "..."}}
-  CREDIT: {{"account": {{"id": AP_ID}}, "amountGross": -GROSS, "amountGrossCurrency": -GROSS, "description": "..."}}
-  Use numberFrom/numberTo for account lookups. Hardcode vatType {{"id": 11}} for 25%.
+- If supplierInvoice returns "credit posting missing": you are missing the credit (AP) posting. You MUST have TWO postings:
+  DEBIT: {{"account": {{"id": EXPENSE_ID}}, "amount": NET_AMOUNT, "vatType": {{"id": 11}}, "description": "..."}}
+  CREDIT: {{"account": {{"id": AP_ID}}, "amount": -GROSS_AMOUNT, "description": "..."}}
+  Use "amount" field. Do NOT use "amountGross" or "row" on supplier invoice postings.
+  Hardcode vatType {{"id": 11}} for 25% input VAT.
 - If GET /ledger/account?number=N returns 422, use range search instead:
   GET /ledger/account?numberFrom=N&numberTo=N+10&count=10
-- If voucher returns "uten posteringer" (without postings): you used "amount" — MUST use "amountGross" and "amountGrossCurrency".
+- If voucher returns "uten posteringer" (without postings): use "amountGross" and "amountGrossCurrency" with "row" >= 1.
   Each posting: {{"row": N, "account": {{"id": X}}, "amountGross": AMT, "amountGrossCurrency": AMT, "description": "..."}}
+  NOTE: For /ledger/voucher use amountGross. For /supplierInvoice use amount. They are DIFFERENT endpoints.
 - If voucher returns "Kunde mangler" (customer missing): add "customer": {{"id": CUSTOMER_ID}} to each posting on AR accounts (1500).
 - If POST /project/ID/projectActivity returns 404: SKIP IT. Timesheet entries work without it —
   just reference the activity ID directly in POST /timesheet/entry.
