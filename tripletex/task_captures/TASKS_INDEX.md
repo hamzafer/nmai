@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 19:51
 **Total unique task types seen:** 23 of 30
-**Total real submissions analyzed:** 55
+**Total real submissions analyzed:** 56
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -93,6 +93,7 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 19:05 | 20260321_190500.md | CUSTOM_DIMENSION_VOUCHER | 0/13 (0%) | Repeat — same issues, no API for free dimensions, voucher postings fail |
 | 2026-03-21 19:10 | 20260321_191000.md | MONTH_END_CLOSING | 2/10 (20%) | NEW — all 6 account lookups OK, all 3 voucher postings fail (format issue) |
 | 2026-03-21 19:51 | 20260321_195100.md | CURRENCY_EXCHANGE_PAYMENT | 7/10 (70%) | NEW — EUR invoice + disagio. Voucher posting failed: customer missing in postings |
+| 2026-03-21 19:55 | 20260321_195500.md | INVOICE_MULTI_LINE | 0/8 (0%) | Spanish. Products existed but agent re-created (422 dup name). Wrong product IDs on order lines |
 
 ---
 
