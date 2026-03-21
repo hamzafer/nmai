@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 22:22
 **Total unique task types seen:** 29 of 30
-**Total real submissions analyzed:** 108
+**Total real submissions analyzed:** 109
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -143,6 +143,7 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 22:01 | — | LEDGER_ANALYSIS_PROJECT | 7.5/10 (75%) | Nynorsk. 7/10 OK! Huge improvement from 0% to 75%! |
 | 2026-03-21 22:04 | — | INVOICE_PAYMENT | 2/7 (29%) | French. 2/3 OK |
 | 2026-03-21 22:06 | — | LEDGER_ANALYSIS_PROJECT | ?/? (pending) | Portuguese. 11/11 OK, 28s |
+| 2026-03-21 22:08 | — | BANK_RECONCILIATION_CSV | 0/10 (0%) | French. 11/16 OK but still 0%. Matching logic broken |
 
 ---
 
