@@ -830,8 +830,16 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                                 if did:
                                     body["department"] = {"id": did}
                                     print(f"  [{i}] AUTO-FIX: created department id={did}")
-                except Exception:
-                    pass
+                            elif dc.status_code == 422:
+                                # Duplicate — try GET again (it may have been created by another call)
+                                dc2 = requests.get(f"{base_url}/department?count=1", auth=auth, timeout=10)
+                                if dc2.status_code == 200:
+                                    dv2 = dc2.json().get("values", [])
+                                    if dv2 and dv2[0].get("id"):
+                                        body["department"] = {"id": dv2[0]["id"]}
+                                        print(f"  [{i}] AUTO-FIX: dept POST 422, using existing id={dv2[0]['id']}")
+                except Exception as e:
+                    print(f"  [{i}] AUTO-FIX: department injection failed: {e}")
 
         # Auto-lookup: if POST /employee, check if email already exists first
         if method == "POST" and path.strip("/") == "employee" and body and body.get("email"):
@@ -944,6 +952,60 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
             postings = voucher_data.get("postings", [])
             voucher_date = voucher_data.get("date", body.get("invoiceDate", "2026-01-01"))
             voucher_desc = voucher_data.get("description", "Supplier invoice")
+
+            # Resolve account IDs inline — don't rely on {result_N_id} refs which break after insertion
+            for posting in postings:
+                acct = posting.get("account", {})
+                acct_id = acct.get("id")
+                # If account ID is a string placeholder or missing, look up by number
+                if not acct_id or isinstance(acct_id, str):
+                    # Try to find account from prior results
+                    found = False
+                    for prev_r in results:
+                        if prev_r.get("status") == 200 and prev_r.get("data"):
+                            vals = prev_r["data"].get("values", []) if isinstance(prev_r["data"], dict) else []
+                            for v in vals:
+                                if v.get("id") and v.get("number"):
+                                    posting["account"] = {"id": v["id"]}
+                                    found = True
+                                    break
+                        if found:
+                            break
+                    # If still no account, look up common accounts inline
+                    if not found:
+                        for try_num in [6300, 7140, 6340, 6800]:  # common expense accounts
+                            try:
+                                lr = requests.get(f"{base_url}/ledger/account?number={try_num}&count=1", auth=auth, timeout=10)
+                                if lr.status_code == 200:
+                                    lv = lr.json().get("values", [])
+                                    if lv:
+                                        posting["account"] = {"id": lv[0]["id"]}
+                                        print(f"  [{i}] AUTO-FIX: resolved expense account {try_num} → id={lv[0]['id']}")
+                                        break
+                            except Exception:
+                                pass
+
+            # Ensure we have an AP (2400) credit posting
+            has_credit = any(p.get("amountGross", 0) < 0 or p.get("amount", 0) < 0 for p in postings)
+            if not has_credit and postings:
+                # Look up AP account 2400
+                try:
+                    ap_r = requests.get(f"{base_url}/ledger/account?number=2400&count=1", auth=auth, timeout=10)
+                    if ap_r.status_code == 200:
+                        ap_vals = ap_r.json().get("values", [])
+                        if ap_vals:
+                            debit_amt = abs(postings[0].get("amountGross", 0) or postings[0].get("amount", 0))
+                            vat_id = postings[0].get("vatType", {}).get("id") if postings[0].get("vatType") else None
+                            vat_mult = {11: 1.25, 12: 1.15, 13: 1.12}.get(vat_id, 1.0) if vat_id else 1.0
+                            gross = round(debit_amt * vat_mult, 2)
+                            postings.append({
+                                "account": {"id": ap_vals[0]["id"]},
+                                "amountGross": -gross, "amountGrossCurrency": -gross,
+                                "description": "Accounts payable"
+                            })
+                            print(f"  [{i}] AUTO-FIX: added AP credit posting (-{gross})")
+                except Exception:
+                    pass
 
             # Convert postings to /ledger/voucher format (amountGross + row)
             for idx, posting in enumerate(postings):
