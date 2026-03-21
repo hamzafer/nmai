@@ -125,7 +125,7 @@ class MockTripletexHandler(BaseHTTPRequestHandler):
                 MOCK_DB.setdefault("invoice", []).append(invoice_data)
                 self._respond(200, {"value": invoice_data})
                 return
-            elif action in (":createPayment", ":pay"):
+            elif action in (":createPayment", ":pay", ":payment"):
                 # Register payment
                 MOCK_ID += 1
                 payment_data = {
