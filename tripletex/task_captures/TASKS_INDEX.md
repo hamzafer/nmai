@@ -1,8 +1,8 @@
 # Tripletex Task Index
 
 **Last updated:** 2026-03-21 21:10
-**Total unique task types seen:** 24 of 30
-**Total real submissions analyzed:** 60
+**Total unique task types seen:** 25 of 30
+**Total real submissions analyzed:** 61
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -59,9 +59,11 @@
 | PDF_EMPLOYEE_CONTRACT | PARTIAL | 4/8 | Yes (PDF) | 2 |
 | BANK_RECONCILIATION_CSV | FAILED | 0/10 | Yes (CSV) | 1 |
 
-## Not Yet Identified (13 remaining task types)
+| LEDGER_ANALYSIS_PROJECT | FAILED | 0/10 | No | 1 |
 
-We've seen 24 of 30 task types. The remaining 6 will appear as we submit more.
+## Not Yet Identified (5 remaining task types)
+
+We've seen 25 of 30 task types. The remaining 5 will appear as we submit more.
 Possible unseen types based on Tripletex API capabilities:
 - Employee update/delete
 - Customer with address
@@ -99,6 +101,7 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 20:03 | 20260321_200300.md | PAYMENT_REVERSAL | 6/8 (75%) | NEW — bank returned payment, reverse via voucher. 0 errors, 5 calls |
 | 2026-03-21 21:08 | 20260321_210800.md | INVOICE_PAYMENT | 2/7 (29%) | French. Created new entities instead of finding existing unpaid invoice. 404 on payment |
 | 2026-03-21 21:11 | 20260321_211100.md | TIME_TRACKING | 4/8 (50%) | Portuguese. Timesheet OK, hourly rate set in fix round, project invoice creation failed |
+| 2026-03-21 21:15 | 20260321_211500.md | LEDGER_ANALYSIS_PROJECT | 0/10 (0%) | NEW TYPE — German. Only GET calls, no projects/activities created. Agent stopped after reading ledger |
 
 ---
 
