@@ -254,11 +254,18 @@ POST /ledger/voucher — Create a journal entry / voucher
   IMPORTANT: If an account number returns empty (id=None), it doesn't exist in the sandbox.
   Common fallbacks: 1209→credit the asset account directly (1230/1250/1210), 8700→use 8300, 2920→try 2500.
   Always search nearby: GET /ledger/account?numberFrom=X&numberTo=Y&count=10
-  Example (depreciation — debit expense 6010, credit asset 1230):
+  Example 1 (depreciation — debit expense 6010, credit asset 1230):
   {"date": "2025-12-31", "description": "Depreciation 2025", "postings": [
-    {"row": 1, "account": {"id": 123}, "amountGross": 50000, "amountGrossCurrency": 50000, "description": "Depreciation expense"},
+    {"row": 0, "account": {"id": 123}, "amountGross": 50000, "amountGrossCurrency": 50000, "description": "Depreciation expense"},
     {"row": 1, "account": {"id": 456}, "amountGross": -50000, "amountGrossCurrency": -50000, "description": "Accumulated depreciation"}
   ]}
+
+  Example 2 (exchange rate loss/disagio — customer-related, requires customer ref):
+  {"date": "2025-07-01", "description": "Disagio", "postings": [
+    {"row": 0, "account": {"id": 888}, "amountGross": 2937.12, "amountGrossCurrency": 2937.12, "description": "Valutatap", "customer": {"id": CUSTOMER_ID}},
+    {"row": 1, "account": {"id": 999}, "amountGross": -2937.12, "amountGrossCurrency": -2937.12, "description": "Kundefordringer", "customer": {"id": CUSTOMER_ID}}
+  ]}
+  REMINDER: "amount" DOES NOT WORK — you MUST use "amountGross" and "amountGrossCurrency" on every posting.
 
 REFERENCING PREVIOUS RESULTS:
 Use "{result_N_id}" to reference the ID from the Nth call's response (0-indexed).
@@ -590,6 +597,30 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
             if found_activity:
                 continue
 
+        # Auto-skip: if POST /product but a prior GET already found this product, skip to avoid 422
+        if method == "POST" and path.strip("/") == "product" and body and body.get("name"):
+            prod_name = body["name"]
+            # Check if any prior GET /product result already has this product
+            for prev_r in results:
+                if prev_r.get("status") == 200 and prev_r.get("id") and prev_r.get("data"):
+                    prev_data = prev_r["data"]
+                    prev_vals = prev_data.get("values", []) if isinstance(prev_data, dict) else []
+                    for v in prev_vals:
+                        if v.get("name", "").lower() == prod_name.lower() or v.get("id") == prev_r.get("id"):
+                            print(f"  [{i}] POST {path} — {desc}")
+                            print(f"    AUTO-SKIP: product '{prod_name}' already found in prior GET, id={prev_r['id']}")
+                            results.append({"status": 200, "id": prev_r["id"], "data": v})
+                            break
+                    else:
+                        continue
+                    break
+            else:
+                # No prior match — proceed with POST
+                pass
+            if len(results) > i:
+                # Was auto-skipped
+                continue
+
         # Auto-fix: supplier invoice postings must use amountGross, not amount
         if method == "POST" and "/supplierInvoice" in path and body:
             voucher = body.get("voucher", {})
@@ -804,8 +835,8 @@ def _try_payment_fallbacks(results: list, plan: list, base_url: str, token: str)
 
     # Try multiple endpoint patterns × multiple paymentTypeIds
     endpoints = [
-        ("PUT", f"/invoice/{invoice_id}/:payment", True),         # confirmed exists
-        ("PUT", f"/invoice/{invoice_id}/:createPayment", True),   # sometimes works
+        ("PUT", f"/invoice/{invoice_id}/:createPayment", True),   # primary endpoint
+        ("PUT", f"/invoice/{invoice_id}/:payment", True),         # fallback
         ("PUT", f"/invoice/{invoice_id}/:pay", True),             # alternative
         ("POST", "/payment", False),                               # body-based fallback
     ]
@@ -1076,6 +1107,9 @@ Common issues:
   Use numberFrom/numberTo for account lookups. Hardcode vatType {{"id": 11}} for 25%.
 - If GET /ledger/account?number=N returns 422, use range search instead:
   GET /ledger/account?numberFrom=N&numberTo=N+10&count=10
+- If voucher returns "uten posteringer" (without postings): you used "amount" — MUST use "amountGross" and "amountGrossCurrency".
+  Each posting: {{"row": N, "account": {{"id": X}}, "amountGross": AMT, "amountGrossCurrency": AMT, "description": "..."}}
+- If voucher returns "Kunde mangler" (customer missing): add "customer": {{"id": CUSTOMER_ID}} to each posting on AR accounts (1500).
 
 Provide a COMPLETE corrected JSON array of ONLY the calls that still need to succeed.
 DO NOT repeat calls that already returned 200/201 — those entities exist and their IDs are in the results above.
