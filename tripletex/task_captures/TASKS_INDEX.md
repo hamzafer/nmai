@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 22:22
 **Total unique task types seen:** 29 of 30
-**Total real submissions analyzed:** 82
+**Total real submissions analyzed:** 85
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -122,6 +122,9 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 21:13 | — | PROJECT_FIXED_PRICE | 2/8 (25%) | Norwegian. 5/7 OK, 84.66s |
 | 2026-03-21 21:18 | — | PAYMENT_REVERSAL | 2/8 (25%) | Portuguese. 2/3 OK, 73.6s |
 | 2026-03-21 21:21 | — | YEAR_END_CLOSING | 6/10 (60%) | Norwegian. 7/13 OK, 63s. Depreciation + tax provision |
+| 2026-03-21 21:24 | — | MONTH_END_CLOSING | 7/10 (70%) | Portuguese. Best score! 7/10 OK. Accrual + depreciation + salary provision |
+| 2026-03-21 21:25 | — | BANK_RECONCILIATION_CSV | 0/10 (0%) | French. 8/8 GETs OK but no payments posted |
+| 2026-03-21 21:27 | — | PROJECT_CREATE | 0/10 (0%) | Portuguese. (pending) |
 
 ---
 
