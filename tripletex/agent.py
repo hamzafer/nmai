@@ -43,10 +43,15 @@ POST /employee — Create an employee
   NOTE: "startDate" does NOT exist on employee — use /employee/employment for that
   NOTE: To set admin role, use "userType": "ADMINISTRATOR"
   Valid userType values: "STANDARD", "EXTENDED", "ADMINISTRATOR"
+  NOTE: "percentOfFullTimeEquivalent" does NOT exist on /employee — put it on /employee/employment.
+  CRITICAL NIN: Norwegian personnummer has strict 11-digit checksums. If the NIN comes from a PDF/image
+  you're interpreting, OMIT it rather than guessing. A wrong checksum causes 422 and blocks ALL downstream calls.
+  Only include nationalIdentityNumber if you're 100% certain of the exact digits from the source document.
 
 POST /employee/employment — Create employment record (for start date)
   Required: employee ({"id": N}), startDate (YYYY-MM-DD)
-  Optional: endDate, employmentType, percentOfFullTimeEquivalent
+  Optional: endDate, percentOfFullTimeEquivalent, occupationCode ({"id": N})
+  BANNED: "employmentType" does NOT exist — Tripletex returns 422 if included. Do NOT send it.
 
 POST /customer — Create a customer
   Required: name, email, isCustomer (must be true)
@@ -121,22 +126,15 @@ GET /invoice — Search for invoices
 POST /invoice — Create an invoice directly
   Required: invoiceDate (YYYY-MM-DD), invoiceDueDate (YYYY-MM-DD), orders (array of {"id": N})
 
-POST /payment — Register payment on an invoice
-  Required: date (YYYY-MM-DD), amount, amountCurrency
-  Required reference: paymentType ({"id": N}), kid (string, can be empty "")
-  The invoice ID may need to be passed via the endpoint or body.
+PUT /invoice/{id}/:payment — Register payment on an invoice
+  USE THIS ENDPOINT:
+  PUT /invoice/{id}/:payment?paymentDate=YYYY-MM-DD&paymentTypeId=1&paidAmount=AMOUNT&paidAmountCurrency=AMOUNT
 
-  TRY THESE PATHS IN ORDER:
-  1. PUT /invoice/{id}/:createPayment?paymentDate=YYYY-MM-DD&paymentTypeId=N&paidAmount=AMOUNT&paidAmountCurrency=AMOUNT
-  2. POST /payment with body: {"date": "YYYY-MM-DD", "amount": AMOUNT, "amountCurrency": AMOUNT, "paymentType": {"id": N}, "invoice": {"id": INVOICE_ID}}
-  3. PUT /invoice/{id}/:pay?paymentDate=YYYY-MM-DD&paymentTypeId=N&paidAmount=AMOUNT
-
-  FOR paymentTypeId / paymentType: Try id=1 or id=2 first. If 500, try other IDs.
-  DO NOT use id=0.
-
-  IMPORTANT: Amount must be the TOTAL INCLUDING VAT (not the ex-VAT amount from the prompt).
-  If task says "9400 NOK excl VAT" and product has 25% MVA, invoice total = 11750 NOK. Pay 11750.
-  Use the "amount" field from the invoice creation response.
+  IMPORTANT: paymentTypeId MUST be 1 (never 0). Amount must be total INCLUDING VAT.
+  If task says "9400 NOK excl VAT" with 25% MVA, pay 11750 (9400 * 1.25).
+  Use the invoice response "amount" field directly — it already includes VAT.
+  DO NOT use :createPayment (returns 404). DO NOT try GET /ledger/paymentType (returns 404).
+  If :payment returns 500, the fallback system will try alternative endpoints automatically.
 
 POST /activity — Create an activity for time tracking
   Required: name, activityType ("PROJECT_GENERAL_ACTIVITY" or "TASK")
@@ -261,12 +259,11 @@ Pattern 5 — Create invoice + register payment:
   {"method": "POST", "path": "/product", "body": {"name": "Service", "priceExcludingVatCurrency": 10000}, "description": "Create product"},
   {"method": "POST", "path": "/order", "body": {"customer": {"id": "{result_2_id}"}, "deliveryDate": "2026-01-15", "orderDate": "2026-01-15", "orderLines": [{"product": {"id": "{result_3_id}"}, "count": 1}]}, "description": "Create order"},
   {"method": "PUT", "path": "/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15", "body": {}, "description": "Convert order to invoice", "depends_on": 4},
-  {"method": "PUT", "path": "/invoice/{prev_id}/:createPayment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=12500&paidAmountCurrency=12500", "body": {}, "description": "Try payment via PUT createPayment (if 404, fix round will try POST /payment)", "depends_on": 5}
+  {"method": "PUT", "path": "/invoice/{prev_id}/:payment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=12500&paidAmountCurrency=12500", "body": {}, "description": "Register full payment", "depends_on": 5}
 ]
 ```
-NOTE: No bank account setup needed — invoice creation works through the competition proxy.
 NOTE: paidAmount must be the invoice total INCLUDING VAT. Calculate: excl_vat * 1.25 for 25% MVA.
-NOTE: Use paymentTypeId=1 as default. If it fails, the fix round will try alternatives.
+NOTE: paymentTypeId MUST be 1. Use :payment NOT :createPayment.
 
 Pattern 6 — Register a supplier:
 ```json
@@ -494,6 +491,39 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                 results.append({"status": resp.status_code, "id": result_id, "data": value})
                 print(f"    OK ({resp.status_code}), id={result_id}")
             else:
+                # Auto-fix: if payment endpoint returns 404/500, try alternatives inline
+                if resp.status_code in (404, 500) and method == "PUT" and "/invoice/" in path and (
+                    ":createPayment" in path or ":payment" in path or ":pay" in path
+                ):
+                    inv_match = re.search(r'/invoice/(\d+)/', path)
+                    if inv_match:
+                        inv_id = inv_match.group(1)
+                        import urllib.parse
+                        params = urllib.parse.parse_qs(urllib.parse.urlparse(path).query)
+                        pay_date = params.get("paymentDate", ["2026-01-15"])[0]
+                        amount = params.get("paidAmount", params.get("paidAmountCurrency", [None]))[0]
+                        if amount:
+                            tried = path.split("/:")[-1].split("?")[0]
+                            alternatives = [a for a in ["payment", "createPayment", "pay"] if a != tried]
+                            payment_fixed = False
+                            for alt in alternatives:
+                                for tid in [1, 2]:
+                                    alt_url = f"{base_url}/invoice/{inv_id}/:{alt}?paymentDate={pay_date}&paymentTypeId={tid}&paidAmount={amount}&paidAmountCurrency={amount}"
+                                    alt_resp = requests.put(alt_url, auth=auth, json={}, timeout=15)
+                                    print(f"    AUTO-FIX: :{alt} typeId={tid} -> {alt_resp.status_code}")
+                                    if alt_resp.status_code in (200, 201):
+                                        alt_data = alt_resp.json()
+                                        alt_value = alt_data.get("value", alt_data)
+                                        alt_id = alt_value.get("id") if isinstance(alt_value, dict) else None
+                                        results.append({"status": alt_resp.status_code, "id": alt_id, "data": alt_value})
+                                        print(f"    AUTO-FIX SUCCESS")
+                                        payment_fixed = True
+                                        break
+                                if payment_fixed:
+                                    break
+                            if payment_fixed:
+                                continue
+
                 error_text = resp.text[:300]
                 results.append({"status": resp.status_code, "error": error_text})
                 print(f"    Error {resp.status_code}: {error_text}")
@@ -546,10 +576,10 @@ def _try_payment_fallbacks(results: list, plan: list, base_url: str, token: str)
 
     # Try multiple endpoint patterns × multiple paymentTypeIds
     endpoints = [
-        ("PUT", f"/invoice/{invoice_id}/:createPayment", True),   # query params
-        ("PUT", f"/invoice/{invoice_id}/:pay", True),             # query params
-        ("POST", f"/invoice/{invoice_id}/payment", False),        # body
-        ("POST", "/payment", False),                               # body with invoice ref
+        ("PUT", f"/invoice/{invoice_id}/:payment", True),         # confirmed exists
+        ("PUT", f"/invoice/{invoice_id}/:createPayment", True),   # sometimes works
+        ("PUT", f"/invoice/{invoice_id}/:pay", True),             # alternative
+        ("POST", "/payment", False),                               # body-based fallback
     ]
 
     for type_id in [1, 2, 3]:
@@ -794,11 +824,9 @@ Common issues:
 - "Produktnummeret NNNN er i bruk" = product number exists. Try GET /product?number=NNNN to find it. If GET returns 404, retry POST /product WITHOUT the number field.
 - If GET returns a list, the ID is in values[0].id — use that integer directly.
 - If PUT /order/ID/:invoice returns 404, try PUT /order/:invoice/ID or POST /invoice with orders: [{{"id": ORDER_ID}}]
-- If PUT /invoice/{id}/:createPayment returns 404, try these alternatives:
-  1. POST /payment with body: {{"date": "YYYY-MM-DD", "amount": N, "amountCurrency": N, "paymentType": {{"id": 1}}, "invoice": {{"id": INVOICE_ID}}}}
-  2. PUT /invoice/{id}/:pay?paymentDate=YYYY-MM-DD&paymentTypeId=1&paidAmount=N
-- paymentTypeId=0 is INVALID — use 1 or 2
-- paidAmount must be INCLUDING VAT (use the "amount" field from invoice response)
+- For payment: PUT /invoice/{id}/:payment?paymentDate=YYYY-MM-DD&paymentTypeId=1&paidAmount=N&paidAmountCurrency=N
+  DO NOT use :createPayment (404). DO NOT try GET /ledger/paymentType (404).
+  paymentTypeId MUST be 1 (not 0). paidAmount must INCLUDE VAT (use invoice "amount" field).
 
 Provide a COMPLETE corrected JSON array of ONLY the calls that still need to succeed.
 DO NOT repeat calls that already returned 200/201 — those entities exist and their IDs are in the results above.
