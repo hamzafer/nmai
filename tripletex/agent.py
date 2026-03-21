@@ -895,15 +895,15 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
             if len(postings) == 2:
                 debit = postings[0]
                 credit = postings[1]
-                debit_amt = abs(debit.get("amount", 0))
-                credit_amt = abs(credit.get("amount", 0))
                 vat_id = debit.get("vatType", {}).get("id") if debit.get("vatType") else None
                 if vat_id:
+                    debit_amt = abs(debit.get("amount", 0))
                     vat_mult = {11: 1.25, 12: 1.15, 13: 1.12}.get(vat_id, 1.0)
-                    expected_gross = round(debit_amt * vat_mult, 2)
-                    if credit_amt != expected_gross and 0 < abs(credit_amt - expected_gross) < 5:
-                        credit["amount"] = -expected_gross
-                        print(f"  [{i}] AUTO-FIX: corrected credit amount {-credit_amt} → {-expected_gross}")
+                    correct_gross = round(debit_amt * vat_mult, 2)
+                    old_credit = credit.get("amount", 0)
+                    credit["amount"] = -correct_gross
+                    if abs(old_credit) != correct_gross:
+                        print(f"  [{i}] AUTO-FIX: credit amount {old_credit} → {-correct_gross}")
             # Auto-add credit posting if only 1 posting (debit only → "credit posting missing")
             if len(postings) == 1:
                 debit = postings[0]
@@ -973,6 +973,17 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                         if m:
                             print(f"  [{i}] AUTO-FIX: salary type {cid} → {m.get('name', '?')} id={m['id']}")
                             st["id"] = m["id"]
+            # Fix: if 2+ specs all use same salary type, set second to Bonus
+            for payslip in body.get("payslips", []):
+                specs = payslip.get("specifications", [])
+                if len(specs) >= 2:
+                    type_ids = [s.get("salaryType", {}).get("id") for s in specs]
+                    if len(set(type_ids)) == 1 and all_st:
+                        for v in all_st:
+                            if "bonus" in v.get("name", "").lower() and v["id"] != type_ids[0]:
+                                specs[1]["salaryType"]["id"] = v["id"]
+                                print(f"  [{i}] AUTO-FIX: second spec → Bonus type id={v['id']}")
+                                break
 
         # Auto-fix: force row >= 1 on voucher postings (row 0 is system-reserved)
         if method == "POST" and body:
@@ -1365,7 +1376,7 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                                         "paymentType": {"id": tid}, "paymentTypeId": tid,
                                         "invoice": {"id": int(inv_id)},
                                     }
-                                    for post_path in ["/payment", "/invoicePayment"]:
+                                    for post_path in ["/payment", f"/invoice/{inv_id}/payment", "/invoicePayment", "/ledger/payment"]:
                                         post_resp = requests.post(f"{base_url}{post_path}", auth=auth, json=pay_body, timeout=15)
                                         print(f"    AUTO-FIX: POST {post_path} typeId={tid} → {post_resp.status_code}")
                                         if post_resp.status_code in (200, 201):
