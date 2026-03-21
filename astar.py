@@ -515,40 +515,10 @@ def play_round(session: requests.Session, round_id: str, detail: dict, round_num
     print("\n=== Saving round data ===")
     save_round_data(round_number, round_id, detail, all_observations, transition_priors)
 
-    # ── Phase 2.5: Local simulator calibration + Monte Carlo ──
+    # NOTE: Local simulator blending disabled — it was degrading scores
+    # (Round 3-4 scored ~62 without it, Round 5-7 scored ~20 with it)
+    # TODO: Re-enable once simulator is properly calibrated against ground truth
     sim_predictions = {}
-    try:
-        from simulator import Simulator, SimParams, run_monte_carlo, calibrate_params
-        print("\n=== Phase 2.5: Local simulator ===")
-
-        # Pool all observations for calibration (use seed 0's initial state)
-        all_obs_flat = []
-        for obs_list in all_observations.values():
-            all_obs_flat.extend(obs_list)
-
-        if all_obs_flat:
-            print("  Calibrating parameters from observations...")
-            calibrated = calibrate_params(
-                initial_states[0]["grid"], initial_states[0]["settlements"],
-                all_obs_flat, width, height,
-                n_candidates=30, n_sims_per=10,
-            )
-        else:
-            calibrated = SimParams()
-
-        # Run Monte Carlo for each seed with calibrated params
-        for seed_idx in range(seeds_count):
-            grid = initial_states[seed_idx]["grid"]
-            setts = initial_states[seed_idx]["settlements"]
-            print(f"  Seed {seed_idx}: running 200 simulations...")
-            sim_pred = run_monte_carlo(grid, setts, params=calibrated,
-                                       n_sims=200, base_seed=seed_idx * 10000)
-            sim_predictions[seed_idx] = sim_pred
-            print(f"  Seed {seed_idx}: done")
-    except ImportError:
-        print("\n  Simulator not available, skipping local sim")
-    except Exception as e:
-        print(f"\n  Simulator error: {e}, continuing without sim")
 
     # ── Phase 3: Build and submit predictions ──
     print("\n=== Phase 3: Building and submitting predictions ===")
