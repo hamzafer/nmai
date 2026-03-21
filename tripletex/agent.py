@@ -329,6 +329,10 @@ POST /ledger/voucher — Create a journal entry / voucher
   Common fallbacks: 1209→credit the asset account directly (1230/1250/1210), 8700→use 8300, 2920→try 2500.
   COMMON ACCOUNTS: 8160 = Valutatap/disagio (exchange rate loss), 8060 = Valutagevinst/agio (exchange rate gain),
     1500 = Kundefordringer (accounts receivable), 2400 = Leverandørgjeld (accounts payable).
+  EXPENSE ACCOUNTS for receipts/kvitteringer:
+    7140 = Reisekostnad (travel), 6300 = Leie lokale (rent), 6500 = Verktøy/inventar (tools/inventory),
+    6340 = IT-utstyr/konsulenttjenester, 6590 = Annen driftskostnad (other operating cost).
+  Norwegian VAT input rates: id=11 (25% standard), id=12 (15% food), id=13 (12% transport), id=6 (0% exempt).
   For currency/exchange rate tasks: ALWAYS use 8160 for loss (disagio) and 8060 for gain (agio). NOT 7960.
   Always search nearby: GET /ledger/account?numberFrom=X&numberTo=Y&count=10
   Example 1 (depreciation — debit expense 6010, credit asset 1230):
@@ -1759,6 +1763,8 @@ Common issues:
 - If PUT /order/ID/:invoice returns 404, try PUT /order/:invoice/ID or POST /invoice with orders: [{{"id": ORDER_ID}}]
 - If PUT /order/ID/:invoice returns 422 on a time tracking / project task, try PUT /project/PROJECT_ID/:createInvoice?invoiceDate=YYYY-MM-DD instead.
   Project invoices use a different endpoint than order-based invoices.
+- When registering payment on an EXISTING invoice, use the invoice's "amount" field from the GET response.
+  Do NOT recalculate from the prompt's excl-VAT amount. The invoice amount already includes VAT.
 - If PUT /order/ID/:invoice returns "invoiceDate: Kan ikke være null", you put dates in the body.
   Dates MUST be query params in the URL, body MUST be {{}}. Example:
   {{"method": "PUT", "path": "/order/ID/:invoice?invoiceDate=YYYY-MM-DD&invoiceDueDate=YYYY-MM-DD", "body": {{}}}}
