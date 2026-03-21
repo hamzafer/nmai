@@ -164,6 +164,15 @@ PUT /invoice/{id}/:createPayment — Register payment on an invoice
   DO NOT use /:payment (returns 404!). Use /:createPayment instead.
   If :createPayment returns 500, the fallback system will try alternative endpoints automatically.
 
+  CRITICAL PATTERN FOR PAYMENT TASKS:
+  When the task says "has an unpaid invoice" / "har en faktura" / "a une facture impayée" / "tiene una factura":
+  The invoice ALREADY EXISTS in the sandbox. Do NOT create a new customer/product/order/invoice!
+  Instead:
+  1. GET /customer?organizationNumber=ORGNUM to find the existing customer
+  2. GET /invoice?invoiceDateFrom=2020-01-01&invoiceDateTo=2026-12-31&customerId=CUSTOMER_ID to find the invoice
+  3. Register payment on the FOUND invoice ID
+  Creating new entities from scratch will score near zero on these tasks.
+
 GET /activity — Search for existing activities (MUST do before POST!)
   GET /activity?name=Analyse&count=10 — search by name
   Activities often PRE-EXIST in sandbox. ALWAYS GET first, only POST if empty.
