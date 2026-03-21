@@ -318,6 +318,9 @@ POST /ledger/voucher — Create a journal entry / voucher
   For customer-related postings (AR account 1500, exchange rate diffs, disagio/agio):
     EVERY posting that touches account 1500 MUST include "customer": {"id": N}.
     Example: {"row": 2, "account": {"id": AR_ID}, "amountGross": -N, "amountGrossCurrency": -N, "customer": {"id": CUST_ID}, "description": "..."}
+  For supplier-related postings (AP account 2400, expense postings for supplier invoices/receipts):
+    EVERY posting that touches account 2400 or expense accounts for a supplier MUST include "supplier": {"id": N}.
+    "Leverandør mangler" error = you forgot to add supplier reference to the posting.
     Omitting customer causes "Kunde mangler" 422 — this is the #1 reason disagio vouchers fail.
   REQUIRED: "row" (integer, MUST start at 1, then 2, 3, ...). Row 0 is RESERVED for system postings — using row 0 causes instant 422.
   REQUIRED: "amountGross", "amountGrossCurrency", "account.id"
