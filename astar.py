@@ -367,7 +367,7 @@ def count_settlement_neighbors(initial_grid, x, y, width, height):
 
 
 def build_prediction_bayesian(width, height, initial_grid, observations,
-                               transition_priors, concentration=8.0,
+                               transition_priors, concentration=20.0,
                                cumulative_priors=None, neighborhood_model=None):
     """
     Build H x W x 6 probability tensor using Bayesian estimation.
