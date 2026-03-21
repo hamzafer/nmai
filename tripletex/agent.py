@@ -241,17 +241,20 @@ FREE ACCOUNTING DIMENSIONS ("fri regnskapsdimensjon" / "close groups"):
 POST /ledger/voucher — Create a journal entry / voucher
   Required: date (YYYY-MM-DD), description (string)
   Required: postings (array) — NOT "voucherLines" (that field does NOT exist!)
-  Each posting: {"account": {"id": N}, "amount": N, "description": "..."}
-  AMOUNT SIGN: positive = DEBIT, negative = CREDIT. Postings MUST sum to zero.
-  Do NOT use "debitAmount"/"creditAmount" — those fields do NOT exist! Use "amount" only.
+  Each posting MUST have these fields:
+    {"row": 1, "account": {"id": N}, "amountGross": N, "amountGrossCurrency": N, "description": "..."}
+  REQUIRED: "row" (integer >= 1, NEVER 0), "amountGross", "amountGrossCurrency", "account.id"
+  AMOUNT SIGN: positive amountGross = DEBIT, negative = CREDIT. Postings MUST sum to zero.
+  NEVER use "amount" — it causes "uten posteringer" error! ONLY use "amountGross" and "amountGrossCurrency".
+  NEVER use "debitAmount"/"creditAmount" — those fields do NOT exist!
   NOTE: Use account IDs from GET /ledger/account, not account numbers directly.
   IMPORTANT: If an account number returns empty (id=None), it doesn't exist in the sandbox.
   Common fallbacks: 1209→credit the asset account directly (1230/1250/1210), 8700→use 8300, 2920→try 2500.
   Always search nearby: GET /ledger/account?numberFrom=X&numberTo=Y&count=10
   Example (depreciation — debit expense 6010, credit asset 1230):
   {"date": "2025-12-31", "description": "Depreciation 2025", "postings": [
-    {"account": {"id": 123}, "amount": 50000, "description": "Depreciation expense"},
-    {"account": {"id": 456}, "amount": -50000, "description": "Accumulated depreciation"}
+    {"row": 1, "account": {"id": 123}, "amountGross": 50000, "amountGrossCurrency": 50000, "description": "Depreciation expense"},
+    {"row": 1, "account": {"id": 456}, "amountGross": -50000, "amountGrossCurrency": -50000, "description": "Accumulated depreciation"}
   ]}
 
 REFERENCING PREVIOUS RESULTS:
