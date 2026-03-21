@@ -42,11 +42,19 @@ class SubmissionLog:
         ]
         self.data["base_url"] = base_url
 
-    def add_llm_call(self, role: str, prompt_text: str, response_text: str):
+    def add_llm_call(self, role: str, prompt_text, response_text: str):
+        if isinstance(prompt_text, list):
+            # Multimodal prompt — log text parts only, skip base64 image data
+            prompt_str = json.dumps(
+                [b for b in prompt_text if b.get("type") != "image"],
+                ensure_ascii=False,
+            )
+        else:
+            prompt_str = prompt_text
         self.data["llm_calls"].append({
             "role": role,
-            "prompt_length": len(prompt_text),
-            "prompt": prompt_text[:5000],
+            "prompt_length": len(prompt_str),
+            "prompt": prompt_str[:5000],
             "response_length": len(response_text),
             "response": response_text,
         })

@@ -28,9 +28,10 @@ def _get_access_token() -> str:
     return result.stdout.strip()
 
 
-def call_claude(prompt: str, system: str = "", max_tokens: int = 4096) -> str:
+def call_claude(prompt, system: str = "", max_tokens: int = 4096) -> str:
     """
     Call Claude Opus 4.6 via Vertex AI.
+    prompt: str (text-only) or list of content blocks (multimodal).
     Returns the text response.
     """
     token = _get_access_token()
