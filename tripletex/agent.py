@@ -643,6 +643,14 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                     if bad_field in body:
                         print(f"  [{i}] AUTO-STRIP: removing invalid field '{bad_field}' from orderline body")
                         body.pop(bad_field)
+            # Auto-fix: voucher postings row must be >= 1 (row 0 = system-generated error)
+            if "/ledger/voucher" in path and body.get("postings"):
+                for idx, posting in enumerate(body["postings"]):
+                    if posting.get("row", 0) == 0:
+                        posting["row"] = idx + 1
+                        print(f"  [{i}] AUTO-FIX: voucher posting row 0 -> {idx + 1}")
+                    if "row" not in posting:
+                        posting["row"] = idx + 1
                 # Validate Norwegian NIN checksum — strip if invalid to avoid 422
                 nin = body.get("nationalIdentityNumber")
                 if nin and not _validate_norwegian_nin(nin):
