@@ -1,8 +1,8 @@
 # Tripletex Task Index
 
-**Last updated:** 2026-03-21 19:11
-**Total unique task types seen:** 22 of 30
-**Total real submissions analyzed:** 54
+**Last updated:** 2026-03-21 19:51
+**Total unique task types seen:** 23 of 30
+**Total real submissions analyzed:** 55
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -47,6 +47,7 @@
 |-----------|--------|-------------|-----------|----------|
 | CUSTOM_DIMENSION_VOUCHER | FAILED | 0/6 | No | 2 |
 | RECEIPT_EXPENSE_PDF | FAILED | 0/10 | Yes (PDF) | 1 |
+| CURRENCY_EXCHANGE_PAYMENT | PARTIAL | 7/10 | No | 1 |
 
 ## Tier 3 (x3 multiplier)
 
@@ -59,7 +60,7 @@
 
 ## Not Yet Identified (13 remaining task types)
 
-We've seen 17 of 30 task types. The remaining 13 will appear as we submit more.
+We've seen 23 of 30 task types. The remaining 7 will appear as we submit more.
 Possible unseen types based on Tripletex API capabilities:
 - Employee update/delete
 - Customer with address
@@ -68,7 +69,7 @@ Possible unseen types based on Tripletex API capabilities:
 - Bank reconciliation
 - Voucher/journal entry
 - Budget entries
-- Currency transactions
+- ~~Currency transactions~~ → SEEN as CURRENCY_EXCHANGE_PAYMENT
 - Inventory/stock management
 - Contact person management
 - Activity-based invoicing
@@ -91,6 +92,7 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 19:01 | 20260321_190100.md | TRAVEL_EXPENSE | 4.5/8 (56%) | ALL 9 calls OK! Score low due to field values (rate/cost categories, dates) |
 | 2026-03-21 19:05 | 20260321_190500.md | CUSTOM_DIMENSION_VOUCHER | 0/13 (0%) | Repeat — same issues, no API for free dimensions, voucher postings fail |
 | 2026-03-21 19:10 | 20260321_191000.md | MONTH_END_CLOSING | 2/10 (20%) | NEW — all 6 account lookups OK, all 3 voucher postings fail (format issue) |
+| 2026-03-21 19:51 | 20260321_195100.md | CURRENCY_EXCHANGE_PAYMENT | 7/10 (70%) | NEW — EUR invoice + disagio. Voucher posting failed: customer missing in postings |
 
 ---
 
@@ -119,3 +121,9 @@ Possible unseen types based on Tripletex API capabilities:
 - POST /ledger/closeGroup returns 405 — endpoint may not support creation via API
 - Need to explore Tripletex API docs for correct endpoint
 - Voucher posting with dimension reference also unknown
+
+### Currency/Disagio Voucher Needs Customer ID
+- When posting exchange rate difference (disagio) voucher, postings must include `customer: {id: ...}`
+- Account 8160 = "Valutatap (disagio)" for exchange rate loss
+- Account 8060 = likely "Valutagevinst (agio)" for exchange rate gain
+- Voucher validation requires customer reference on AR-related postings
