@@ -999,30 +999,93 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                     if emp_id:
                         break
                 if emp_id:
-                    # Check if employment has division
-                    emp_r = requests.get(f"{base_url}/employee/employment?employeeId={emp_id}&count=1&fields=id,division", auth=auth, timeout=10)
+                    # Step 1: Get employment
+                    emp_r = requests.get(f"{base_url}/employee/employment?employeeId={emp_id}&count=1", auth=auth, timeout=10)
                     if emp_r.status_code == 200:
                         emp_vals = emp_r.json().get("values", [])
                         if emp_vals:
                             employment = emp_vals[0]
-                            div = employment.get("division")
+                            employment_id = employment.get("id")
+
+                            # Step 2: Ensure employment details exist (prerequisite for salary)
+                            det_r = requests.get(f"{base_url}/employee/employment/details?employmentId={employment_id}&count=1", auth=auth, timeout=10)
+                            has_details = False
+                            if det_r.status_code == 200:
+                                det_vals = det_r.json().get("values", [])
+                                has_details = bool(det_vals)
+                            if not has_details:
+                                start_date = employment.get("startDate", "2025-01-01")
+                                det_post = requests.post(f"{base_url}/employee/employment/details", auth=auth,
+                                    json={"employment": {"id": employment_id}, "date": start_date}, timeout=15)
+                                print(f"  [{i}] AUTO-FIX: created employment details (status={det_post.status_code})")
+
+                            # Step 3: Re-check if division is now set (details creation can auto-assign)
+                            emp_r2 = requests.get(f"{base_url}/employee/employment/{employment_id}", auth=auth, timeout=10)
+                            div = None
+                            if emp_r2.status_code == 200:
+                                emp_data2 = emp_r2.json()
+                                emp_val2 = emp_data2.get("value", emp_data2)
+                                if isinstance(emp_val2, dict):
+                                    div = emp_val2.get("division")
+
                             if not div or not isinstance(div, dict) or not div.get("id"):
-                                # Need to link division — get company
-                                co_r = requests.get(f"{base_url}/company", auth=auth, timeout=10)
-                                if co_r.status_code == 200:
-                                    co_data = co_r.json()
-                                    # Company response may be single value or list
-                                    co_val = co_data.get("value", co_data)
-                                    if isinstance(co_val, dict):
-                                        co_id = co_val.get("id")
-                                        if co_id:
-                                            emp_id_val = employment.get("id")
-                                            put_r = requests.put(
-                                                f"{base_url}/employee/employment/{emp_id_val}",
-                                                auth=auth,
-                                                json={"id": emp_id_val, "employee": {"id": emp_id}, "division": {"id": co_id}},
-                                                timeout=15)
-                                            print(f"  [{i}] AUTO-FIX: linked employment {emp_id_val} to division/company {co_id} (status={put_r.status_code})")
+                                # Step 4: Find a valid division ID via multiple strategies
+                                division_id = None
+
+                                # Strategy A: GET /company/divisions or /division
+                                for div_path in ["/company/divisions?count=10", "/division?count=10"]:
+                                    try:
+                                        dr = requests.get(f"{base_url}{div_path}", auth=auth, timeout=10)
+                                        if dr.status_code == 200:
+                                            dv = dr.json().get("values", [])
+                                            if dv and dv[0].get("id"):
+                                                division_id = dv[0]["id"]
+                                                print(f"  [{i}] AUTO-FIX: found division via {div_path}: {division_id}")
+                                                break
+                                    except Exception:
+                                        pass
+
+                                # Strategy B: GET /company with values array (avoid bank data)
+                                if not division_id:
+                                    try:
+                                        co_r = requests.get(f"{base_url}/company?count=5", auth=auth, timeout=10)
+                                        if co_r.status_code == 200:
+                                            co_data = co_r.json()
+                                            co_vals = co_data.get("values", [])
+                                            # Filter out banks — look for non-bank entries
+                                            for cv in co_vals:
+                                                name = (cv.get("name") or "").lower()
+                                                if cv.get("id") and "dnb" not in name and "bank" not in name:
+                                                    division_id = cv["id"]
+                                                    print(f"  [{i}] AUTO-FIX: using company id={division_id} name='{cv.get('name')}'")
+                                                    break
+                                            # Fallback: use first company even if it looks like bank
+                                            if not division_id and co_vals and co_vals[0].get("id"):
+                                                division_id = co_vals[0]["id"]
+                                                print(f"  [{i}] AUTO-FIX: using first company id={division_id} (fallback)")
+                                            # Also try single value response
+                                            if not division_id:
+                                                co_val = co_data.get("value")
+                                                if isinstance(co_val, dict) and co_val.get("id"):
+                                                    division_id = co_val["id"]
+                                    except Exception:
+                                        pass
+
+                                if division_id:
+                                    put_r = requests.put(
+                                        f"{base_url}/employee/employment/{employment_id}",
+                                        auth=auth,
+                                        json={"id": employment_id, "employee": {"id": emp_id}, "division": {"id": division_id}},
+                                        timeout=15)
+                                    print(f"  [{i}] AUTO-FIX: linked employment {employment_id} to division {division_id} (status={put_r.status_code})")
+                                    if put_r.status_code not in (200, 201):
+                                        # Retry with minimal body
+                                        put_r2 = requests.put(
+                                            f"{base_url}/employee/employment/{employment_id}",
+                                            auth=auth, json={"division": {"id": division_id}}, timeout=15)
+                                        print(f"  [{i}] AUTO-FIX: retry minimal PUT (status={put_r2.status_code})")
+                            else:
+                                print(f"  [{i}] AUTO-FIX: division already set: {div.get('id')}")
             except Exception as e:
                 print(f"  [{i}] AUTO-FIX: division linking failed: {e}")
 
