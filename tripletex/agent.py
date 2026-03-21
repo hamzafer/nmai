@@ -171,12 +171,6 @@ POST /salary/payslip — Create/run payroll for an employee
   IMPORTANT: Field is "specifications" not "payslipSpecifications".
   First GET /salary/type to find valid salary type IDs.
 
-POST /employee/employment — Employment record
-  Required: employee ({"id": N}), startDate (YYYY-MM-DD)
-  Optional: endDate, percentOfFullTimeEquivalent
-  Do NOT include "employmentType" — that field does NOT exist on this endpoint!
-  Do NOT include "nationalIdentityNumber" on /employee if format is uncertain — it has strict validation (11-digit Norwegian personnummer with checksum). Omit it rather than risk a 422.
-
 GET /salary/payslip — Query existing payslips
 
 GET /ledger/account — Query chart of accounts
@@ -272,6 +266,20 @@ Pattern 6 — Register a supplier:
 ]
 ```
 
+Pattern 7 — Run payroll (salary + optional bonus):
+```json
+[
+  {"method": "POST", "path": "/department", "body": {"name": "General", "departmentNumber": 1}, "description": "Create department"},
+  {"method": "POST", "path": "/employee", "body": {"firstName": "Ola", "lastName": "Nordmann", "email": "ola@example.org", "userType": "STANDARD", "department": {"id": "{prev_id}"}}, "description": "Create employee", "depends_on": 0},
+  {"method": "POST", "path": "/employee/employment", "body": {"employee": {"id": "{prev_id}"}, "startDate": "2025-01-01"}, "description": "Create employment", "depends_on": 1},
+  {"method": "GET", "path": "/salary/type?isInactive=false&count=100", "body": null, "description": "Get salary types — find Fastlønn and Bonus IDs"},
+  {"method": "POST", "path": "/salary/payslip", "body": {"employee": {"id": "{result_1_id}"}, "date": "2025-03-31", "year": 2025, "month": 3, "specifications": [{"salaryType": {"id": "{result_3_id}"}, "rate": 45000, "count": 1, "amount": 45000}]}, "description": "Create payslip with salary"}
+]
+```
+NOTE: You MUST GET /salary/type first — do NOT hardcode salary type IDs.
+NOTE: "Fastlønn" = base salary. For bonus, find the "Bonus" type in the GET response and add a second specification.
+NOTE: Field MUST be "specifications" — NOT "payslipSpecifications".
+
 RESPONSE FORMAT — return a JSON array of API calls. Use "depends_on" (0-indexed integer) for {prev_id} substitution. Use "{result_N_id}" to reference any previous call's ID.
 
 IMPORTANT NOTES:
@@ -287,6 +295,30 @@ Think step by step about:
 
 Be precise and minimal — fewer API calls = better score. Every 4xx error reduces your efficiency bonus.
 """
+
+
+def _validate_norwegian_nin(nin: str) -> bool:
+    """Validate Norwegian national identity number (11-digit personnummer) checksum."""
+    if not nin or len(nin) != 11 or not nin.isdigit():
+        return False
+    d = [int(c) for c in nin]
+    # Control digit 1
+    w1 = [3, 7, 6, 1, 8, 9, 4, 5, 2]
+    s1 = sum(d[i] * w1[i] for i in range(9))
+    r1 = 11 - (s1 % 11)
+    if r1 == 11:
+        r1 = 0
+    if r1 == 10 or r1 != d[9]:
+        return False
+    # Control digit 2
+    w2 = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2]
+    s2 = sum(d[i] * w2[i] for i in range(10))
+    r2 = 11 - (s2 % 11)
+    if r2 == 11:
+        r2 = 0
+    if r2 == 10 or r2 != d[10]:
+        return False
+    return True
 
 
 def extract_file_content(files: list) -> tuple:
