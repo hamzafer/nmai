@@ -639,7 +639,7 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                         print(f"  [{i}] AUTO-STRIP: removing invalid field '{bad_field}' from employee body")
                         body.pop(bad_field)
             if "/project/orderline" in path:
-                for bad_field in ("isInvoiced",):
+                for bad_field in ("isInvoiced", "amountGross", "amountGrossCurrency"):
                     if bad_field in body:
                         print(f"  [{i}] AUTO-STRIP: removing invalid field '{bad_field}' from orderline body")
                         body.pop(bad_field)
