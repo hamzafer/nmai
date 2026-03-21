@@ -40,6 +40,7 @@ POST /employee — Create an employee
   Optional: dateOfBirth (YYYY-MM-DD), phoneNumberMobile, phoneNumberHome, phoneNumberWork
   IMPORTANT: userType is REQUIRED. Use "STANDARD" for normal employees.
   IMPORTANT: department is REQUIRED. First create a department if none exist, or GET /department to find one.
+  IMPORTANT: If you will create /employee/employment, you MUST include dateOfBirth on the employee (required for employment). Use "1990-01-01" if not specified.
   NOTE: "startDate" does NOT exist on employee — use /employee/employment for that
   NOTE: To set admin role, use "userType": "ADMINISTRATOR"
   Valid userType values: "STANDARD", "EXTENDED", "ADMINISTRATOR"
@@ -50,6 +51,9 @@ POST /employee — Create an employee
 
 POST /employee/employment — Create employment record (for start date)
   Required: employee ({"id": N}), startDate (YYYY-MM-DD)
+  IMPORTANT: Employee MUST have dateOfBirth set BEFORE creating employment — otherwise 422.
+  If dateOfBirth wasn't set on POST /employee, use PUT /employee/{id} to add it first.
+  Use "1990-01-15" as default dateOfBirth if not specified in the task.
   Optional: endDate, percentOfFullTimeEquivalent, occupationCode ({"id": N})
   BANNED: "employmentType" does NOT exist — Tripletex returns 422 if included. Do NOT send it.
 
@@ -160,9 +164,13 @@ PUT /invoice/{id}/:createPayment — Register payment on an invoice
   DO NOT use /:payment (returns 404!). Use /:createPayment instead.
   If :createPayment returns 500, the fallback system will try alternative endpoints automatically.
 
-POST /activity — Create an activity for time tracking
+GET /activity — Search for existing activities (MUST do before POST!)
+  GET /activity?name=Analyse&count=10 — search by name
+  Activities often PRE-EXIST in sandbox. ALWAYS GET first, only POST if empty.
+
+POST /activity — Create activity (ONLY if GET found nothing!)
   Required: name, activityType ("PROJECT_GENERAL_ACTIVITY" or "TASK")
-  NOTE: activityType is REQUIRED — cannot be null.
+  CRITICAL: "Navnet er i bruk" = name exists. GET /activity?name=X first and use existing ID.
 
 POST /project/{projectId}/projectActivity — Link an activity to a project
   Required: activity ({"id": N})
@@ -529,6 +537,10 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                     print(f"  [{i}] AUTO-STRIP: invalid NIN checksum '{nin}', removing to avoid 422")
                     body.pop("nationalIdentityNumber")
 
+        # Auto-inject dateOfBirth on employee POST if missing (required for employment)
+        if method == "POST" and path.strip("/") == "employee" and body and not body.get("dateOfBirth"):
+            body["dateOfBirth"] = "1990-01-15"
+
         # Auto-lookup: if POST /employee, check if email already exists first
         if method == "POST" and path.strip("/") == "employee" and body and body.get("email"):
             email = body["email"]
@@ -546,6 +558,31 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                         continue
             except Exception:
                 pass  # Fall through to normal POST
+
+        # Auto-lookup: if POST /activity, check if name already exists first
+        if method == "POST" and path.strip("/") == "activity" and body and body.get("name"):
+            act_name = body["name"]
+            found_activity = False
+            for lookup_url in [f"{base_url}/activity?name={act_name}&count=5",
+                               f"{base_url}/activity?count=100"]:
+                try:
+                    lookup_resp = requests.get(lookup_url, auth=auth, timeout=15)
+                    if lookup_resp.status_code == 200:
+                        lookup_data = lookup_resp.json()
+                        vals = lookup_data.get("values", [])
+                        match = next((v for v in vals if v.get("name", "").lower() == act_name.lower()), None)
+                        if not match and vals:
+                            match = vals[0]  # fallback to first result if name filter worked
+                        if match and match.get("id"):
+                            print(f"  [{i}] POST {path} — {desc}")
+                            print(f"    AUTO-LOOKUP: activity name='{act_name}' exists, id={match['id']}")
+                            results.append({"status": 200, "id": match["id"], "data": match})
+                            found_activity = True
+                            break
+                except Exception:
+                    continue
+            if found_activity:
+                continue
 
         # Auto-fix: supplier invoice postings must use amountGross, not amount
         if method == "POST" and "/supplierInvoice" in path and body:
@@ -1023,6 +1060,9 @@ Common issues:
   Each spec: {{"salaryType": {{"id": N}}, "rate": N, "count": 1, "amount": N}}
   GET /salary/type first to find valid IDs. "Fastlønn" = base salary.
 - If nationalIdentityNumber caused 422 ("Ugyldig format"), OMIT it — create employee without it.
+- "Navnet er i bruk" on POST /activity = activity already exists. GET /activity?name=X to find its ID.
+- "employee.dateOfBirth: Feltet må fylles ut" on /employee/employment = employee needs dateOfBirth.
+  PUT /employee/ID with dateOfBirth field, then retry employment creation.
 - If supplierInvoice returns "credit posting missing": use "amountGross"/"amountGrossCurrency" NOT "amount"!
   Supplier invoice postings IGNORE "amount" field — you MUST use amountGross/amountGrossCurrency.
   DEBIT: {{"account": {{"id": N}}, "amountGross": NET, "amountGrossCurrency": NET, "vatType": {{"id": 11}}, "description": "..."}}
