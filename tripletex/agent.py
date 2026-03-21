@@ -83,9 +83,10 @@ POST /supplierInvoice — Register a supplier/vendor invoice (incoming invoice)
     - {"id": 12} = 15% input VAT (middels sats)
     - {"id": 13} = 12% input VAT (lav sats)
 
-  Account lookups: ALWAYS use range search (exact number may return 422):
-    GET /ledger/account?numberFrom=2400&numberTo=2410&count=10 (accounts payable)
-    GET /ledger/account?numberFrom=6300&numberTo=6350&count=10 (use task's expense account range)
+  Account lookups: ALWAYS use exact number queries (range queries return wrong results!):
+    GET /ledger/account?number=2400&count=1 (accounts payable)
+    GET /ledger/account?number=6340&count=1 (use task's expense account)
+    Do NOT use numberFrom/numberTo — they return incorrect accounts on this proxy.
 
 GET /ledger/account — Query chart of accounts
   Search by number: GET /ledger/account?number=7140
@@ -598,7 +599,8 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                 else:
                     value = data
                     result_id = data.get("id") if isinstance(data, dict) else None
-                # Auto-fallback: if GET /ledger/account returned empty, search nearby range
+                # Auto-fallback: if GET /ledger/account returned empty, try nearby exact numbers
+                # NOTE: numberFrom/numberTo range queries return wrong results on this proxy
                 if (result_id is None and method == "GET"
                         and "/ledger/account" in path and "number=" in path
                         and "numberFrom" not in path):
@@ -607,34 +609,42 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                     acct_num = parsed_qs.get("number", [None])[0]
                     if acct_num and acct_num.isdigit():
                         acct_int = int(acct_num)
-                        range_from = (acct_int // 10) * 10
-                        range_to = range_from + 19
-                        fallback_url = f"{base_url}/ledger/account?numberFrom={range_from}&numberTo={range_to}&count=10"
-                        try:
-                            fb_resp = requests.get(fallback_url, auth=auth, timeout=15)
-                            if fb_resp.status_code == 200:
-                                fb_data = fb_resp.json()
-                                fb_vals = fb_data.get("values", [])
-                                if fb_vals:
-                                    result_id = fb_vals[0]["id"]
-                                    value = fb_data
-                                    print(f"    FALLBACK: account {acct_num} empty, found {len(fb_vals)} in range {range_from}-{range_to}, using id={result_id}")
-                        except Exception:
-                            pass
+                        # Try nearby account numbers with exact queries
+                        nearby = [acct_int - 1, acct_int + 1, acct_int - 10, acct_int + 10,
+                                  (acct_int // 100) * 100]
+                        for try_num in nearby:
+                            if try_num <= 0:
+                                continue
+                            fb_url = f"{base_url}/ledger/account?number={try_num}&count=1"
+                            try:
+                                fb_resp = requests.get(fb_url, auth=auth, timeout=10)
+                                if fb_resp.status_code == 200:
+                                    fb_data = fb_resp.json()
+                                    fb_vals = fb_data.get("values", [])
+                                    if fb_vals and fb_vals[0].get("id"):
+                                        result_id = fb_vals[0]["id"]
+                                        value = fb_data
+                                        print(f"    FALLBACK: account {acct_num} empty, trying {try_num} → found id={result_id}")
+                                        break
+                            except Exception:
+                                pass
 
                 results.append({"status": resp.status_code, "id": result_id, "data": value})
                 print(f"    OK ({resp.status_code}), id={result_id}")
             else:
-                # Auto-fix: if GET /ledger/account returns 422, try range search instead
+                # Auto-fix: if GET /ledger/account returns 422, try nearby exact numbers
                 if resp.status_code == 422 and method == "GET" and "/ledger/account" in path and "number=" in path and "numberFrom" not in path:
                     import urllib.parse
                     parsed_qs = urllib.parse.parse_qs(urllib.parse.urlparse(path).query)
                     acct_num = parsed_qs.get("number", [None])[0]
                     if acct_num and acct_num.isdigit():
                         acct_int = int(acct_num)
-                        range_from = (acct_int // 10) * 10
-                        range_to = range_from + 19
-                        fallback_url = f"{base_url}/ledger/account?numberFrom={range_from}&numberTo={range_to}&count=10"
+                        nearby = [acct_int - 1, acct_int + 1, acct_int - 10, acct_int + 10,
+                                  (acct_int // 100) * 100]
+                        for try_num in nearby:
+                            if try_num <= 0:
+                                continue
+                            fallback_url = f"{base_url}/ledger/account?number={try_num}&count=1"
                         try:
                             fb_resp = requests.get(fallback_url, auth=auth, timeout=15)
                             if fb_resp.status_code == 200:
