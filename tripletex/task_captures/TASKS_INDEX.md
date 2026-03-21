@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 22:22
 **Total unique task types seen:** 29 of 30
-**Total real submissions analyzed:** 112
+**Total real submissions analyzed:** 114
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -147,6 +147,8 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 22:12 | — | SUPPLIER_CREATE | 6/6 (100%) | PERFECT! Norwegian. 1 call, 9.49s |
 | 2026-03-21 22:15 | — | LEDGER_ANALYSIS_PROJECT | 2/10 (20%) | English. 7/10 OK |
 | 2026-03-21 22:17 | — | SUPPLIER_CREATE | 6/6 (100%) | PERFECT! German. 1 call, 10.54s |
+| 2026-03-21 22:18 | — | LEDGER_ANALYSIS_PROJECT | 0/10 (0%) | Norwegian. 11/11 OK but 0%. Inconsistent scoring (was 75% earlier) |
+| 2026-03-21 22:20 | — | EMPLOYEE_WITH_DETAILS | 8/8 (100%) | PERFECT! French. 3/3 OK, 22s |
 
 ---
 
