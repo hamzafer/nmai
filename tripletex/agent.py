@@ -209,6 +209,7 @@ POST /project/orderline — Set fixed price on a project
   Optional: product ({"id": N}), description, count, unitPriceExcludingVatCurrency, amountExcludingVatCurrency, amountGross
   Use this to set the fixed price amount on a project.
   IMPORTANT: amountGross is REQUIRED for the orderline to be billable. Without it you get "Ordrelinjen er ikke fakturerbar".
+  BANNED: "isInvoiced" does NOT exist — Tripletex returns 422 if included.
 
 POST /travelExpense — Create travel expense report
   Required: employee ({"id": N}), title (string)
