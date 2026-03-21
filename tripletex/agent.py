@@ -662,6 +662,32 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
             body_str = _replace_result_refs(body_str)
             body = json.loads(body_str)
 
+        # Auto-fix: AUTODETECT payment amount from prior invoice GET response
+        if "AUTODETECT" in path and ":createPayment" in path:
+            for prev_r in results:
+                if prev_r.get("status") == 200 and prev_r.get("data"):
+                    prev_data = prev_r["data"]
+                    # Check list responses (GET /invoice returns values array)
+                    vals = prev_data.get("values", []) if isinstance(prev_data, dict) else []
+                    if vals:
+                        inv = vals[0]  # Use first invoice found
+                        amt = inv.get("amount") or inv.get("amountCurrency") or inv.get("amountOutstanding")
+                        if amt:
+                            path = path.replace("AUTODETECT", str(amt))
+                            print(f"  [{i}] AUTO-FIX: detected payment amount={amt} from invoice response")
+                            break
+            # If still unresolved, try extracting amount from prompt
+            if "AUTODETECT" in path:
+                import re as _re
+                # Match amounts like "49600 NOK", "9400 kr", "12000 NOK"
+                amt_match = _re.search(r'(\d+(?:\.\d+)?)\s*(?:NOK|kr|nok)', prompt if 'prompt' in dir() else '')
+                if amt_match:
+                    raw_amt = float(amt_match.group(1))
+                    # Tasks usually say "excl. VAT" — multiply by 1.25 for total
+                    total_amt = raw_amt * 1.25
+                    path = path.replace("AUTODETECT", str(total_amt))
+                    print(f"  [{i}] AUTO-FIX: estimated payment amount={total_amt} (excl VAT {raw_amt} * 1.25)")
+
         # Auto-fix: bank reconciliation — match payment calls to invoices by amount
         if method == "PUT" and ":createPayment" in path and "/invoice/" in path:
             import urllib.parse
@@ -1728,8 +1754,50 @@ def inject_prerequisites(plan: list, prompt: str) -> list:
     if not plan:
         return plan
 
-    # NOTE: Bank account injection removed — invoice works without it through the proxy.
-    # The GET /company and PUT /company endpoints return 404/405 through the proxy anyway.
+    p = prompt.lower()
+
+    # Fix: INVOICE_PAYMENT — force GET-first pattern when task says invoice ALREADY EXISTS
+    # The LLM often creates new entities instead of finding existing ones
+    payment_keywords = [
+        "unpaid invoice", "outstanding invoice", "register full payment", "register payment",
+        "offene rechnung", "registrieren sie die vollständige zahlung", "vollständige zahlung",
+        "uteståande faktura", "registrer full betaling", "registrer betaling",
+        "facture impayée", "enregistrez le paiement", "paiement intégral",
+        "factura impaga", "factura pendiente", "registre el pago",
+        "fatura em aberto", "fatura pendente", "registe o pagamento",
+        "har en faktura", "hat eine rechnung", "a une facture", "tiene una factura", "tem uma fatura",
+        "has an invoice", "har ein faktura",
+    ]
+    is_payment_task = any(kw in p for kw in payment_keywords)
+
+    # Don't trigger for supplier invoices, travel expenses, credit notes, or payment reversals
+    not_payment = ["supplier", "leverandør", "lieferant", "fournisseur", "proveedor", "fornecedor",
+                   "credit note", "kreditnota", "gutschrift", "nota de crédito",
+                   "travel expense", "reiseutgift", "gastos de viaje", "frais de déplacement",
+                   "returnert", "returned", "reverser", "reverse"]
+    if any(kw in p for kw in not_payment):
+        is_payment_task = False
+
+    if is_payment_task and plan and plan[0].get("method") == "POST":
+        # Plan starts with POST (creating new entities) — override with GET-first pattern
+        org_match = re.search(
+            r'(?:org\.?\s*(?:n[roº]|number|nr)\.?\s*:?\s*)(\d{9})',
+            prompt, re.IGNORECASE
+        )
+        if org_match:
+            org_num = org_match.group(1)
+            print(f"  PLAN OVERRIDE: invoice payment task with org {org_num}, forcing GET-first pattern")
+            plan = [
+                {"method": "GET", "path": f"/customer?organizationNumber={org_num}&count=1",
+                 "body": None, "description": "Find existing customer by org number"},
+                {"method": "GET",
+                 "path": "/invoice?customerId={result_0_id}&invoiceDateFrom=2020-01-01&invoiceDateTo=2026-12-31&count=100",
+                 "body": None, "description": "Find invoices for this customer", "depends_on": 0},
+                {"method": "PUT",
+                 "path": "/invoice/{result_1_id}/:createPayment?paymentDate=2026-01-15&paymentTypeId=1&paidAmount=AUTODETECT&paidAmountCurrency=AUTODETECT",
+                 "body": {}, "description": "Register full payment", "depends_on": 1},
+            ]
+
     return plan
 
 
@@ -1820,6 +1888,68 @@ Return ONLY a JSON array of Tripletex API calls. No explanation. Example format:
                 # Recount — payment succeeded via fallback
                 failed = [r for r in results if r.get("status") not in (200, 201, None) or r.get("error")]
                 print(f"  After payment fallback: {len(failed)} remaining failures")
+            else:
+                # Voucher-based payment fallback: debit bank (1920), credit AR (1500)
+                print("  Trying voucher-based payment fallback...")
+                auth = ("0", session_token)
+                for pi, (p_call, p_res) in enumerate(zip(current_plan, results)):
+                    p_path = p_call.get("path", "")
+                    if (p_res.get("status") in (404, 500)
+                            and ("createPayment" in p_path or ":payment" in p_path)
+                            and "/invoice/" in p_path):
+                        import urllib.parse
+                        parsed_qs = urllib.parse.parse_qs(urllib.parse.urlparse(p_path).query)
+                        pay_date = parsed_qs.get("paymentDate", ["2026-01-15"])[0]
+                        amount_str = parsed_qs.get("paidAmount", [None])[0]
+                        inv_match = re.search(r'/invoice/(\d+)/', p_path)
+                        if amount_str and inv_match:
+                            amount = float(amount_str)
+                            inv_id = int(inv_match.group(1))
+                            # Find customer from prior invoice data
+                            customer_id = None
+                            for pr in results:
+                                if pr.get("status") == 200 and pr.get("data"):
+                                    pd = pr["data"]
+                                    vals = pd.get("values", []) if isinstance(pd, dict) else []
+                                    for v in vals:
+                                        if v.get("id") == inv_id:
+                                            cust = v.get("customer", {})
+                                            customer_id = cust.get("id") if isinstance(cust, dict) else None
+                            # Look up accounts
+                            bank_id = ar_id = None
+                            for acct_num, var_name in [(1920, "bank_id"), (1500, "ar_id")]:
+                                try:
+                                    ar = requests.get(f"{base_url}/ledger/account?number={acct_num}&count=1", auth=auth, timeout=10)
+                                    if ar.status_code == 200:
+                                        av = ar.json().get("values", [])
+                                        if av:
+                                            if var_name == "bank_id":
+                                                bank_id = av[0]["id"]
+                                            else:
+                                                ar_id = av[0]["id"]
+                                except Exception:
+                                    pass
+                            if bank_id and ar_id:
+                                postings = [
+                                    {"row": 1, "account": {"id": bank_id},
+                                     "amountGross": amount, "amountGrossCurrency": amount,
+                                     "description": "Payment received"},
+                                    {"row": 2, "account": {"id": ar_id},
+                                     "amountGross": -amount, "amountGrossCurrency": -amount,
+                                     "description": "Invoice payment"},
+                                ]
+                                if customer_id:
+                                    postings[1]["customer"] = {"id": customer_id}
+                                vr = requests.post(f"{base_url}/ledger/voucher", auth=auth,
+                                    json={"date": pay_date, "description": f"Payment invoice {inv_id}", "postings": postings},
+                                    timeout=15)
+                                print(f"  Voucher payment fallback → {vr.status_code}")
+                                if vr.status_code in (200, 201):
+                                    vd = vr.json()
+                                    vv = vd.get("value", vd)
+                                    results[pi] = {"status": vr.status_code, "id": vv.get("id") if isinstance(vv, dict) else None, "data": vv}
+                                    print(f"  ✓ Voucher payment succeeded!")
+                failed = [r for r in results if r.get("status") not in (200, 201, None) or r.get("error")]
 
         # All succeeded — done
         if not failed:
