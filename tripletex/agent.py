@@ -1130,7 +1130,7 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                             prev_data = prev_r.get("data", {})
                             if isinstance(prev_data, dict):
                                 pv = prev_data.get("value", prev_data) if "value" in prev_data else prev_data
-                                if "startDate" in pv or "employment" in str(pv.get("url", "")):
+                                if "employmentId" in pv or "startDate" in pv or "employment" in str(pv.get("url", "")):
                                     employment_id = prev_r["id"]
                                 elif "firstName" in pv or "email" in pv:
                                     emp_id = prev_r["id"]
