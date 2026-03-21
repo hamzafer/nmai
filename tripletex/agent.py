@@ -128,8 +128,9 @@ POST /project — Create a project
   Required: name, projectManager ({"id": N}), isInternal (true/false), startDate (YYYY-MM-DD)
   Optional but RECOMMENDED: customer ({"id": N}), endDate, number (string), description (string)
   ALWAYS include description (summarize the task). Include number if task specifies one.
-  NOTE: projectManager must reference an employee ID
-  NOTE: startDate IS required — use today's date if not specified in the task
+  NOTE: projectManager must reference an employee ID. For internal projects, create a NEW employee — existing ones may lack PM permissions.
+  NOTE: startDate IS required — use today's date if not specified
+  NOTE: ALWAYS use salary type IDs from GET /salary/type response — IDs vary per sandbox, do NOT hardcode.
 
 POST /department — Create a department
   Required: name, departmentNumber
@@ -191,12 +192,15 @@ PUT /invoice/{id}/:createPayment — Register payment on an invoice
   BANK RECONCILIATION (CSV) PATTERN — YOU MUST INCLUDE PAYMENT CALLS:
   When the task asks to reconcile a bank statement CSV against invoices:
   1. GET /invoice?invoiceDateFrom=2020-01-01&invoiceDateTo=2026-12-31&count=100 to get ALL invoices
-  2. Match CSV rows to invoices by AMOUNT (not invoice number!)
-  3. For EACH matched invoice, you MUST include a payment call in your plan:
-     PUT /invoice/{INVOICE_ID}/:createPayment?paymentDate=CSV_DATE&paymentTypeId=1&paidAmount=AMOUNT&paidAmountCurrency=AMOUNT
+  2. Match CSV rows to invoices by AMOUNT (not invoice number! CSV says "Faktura 1001" but actual invoiceNumber is 1,2,3...)
+     The FIRST GET returns all invoices with their real IDs and amounts. Use THOSE IDs directly.
+     Do NOT search again by invoiceNumber — the CSV numbers don't match real invoice numbers.
+  3. For EACH matched invoice, HARDCODE the real invoice ID in a payment call:
+     PUT /invoice/REAL_ID/:createPayment?paymentDate=CSV_DATE&paymentTypeId=1&paidAmount=AMOUNT&paidAmountCurrency=AMOUNT
   4. For supplier payments in CSV: GET /supplierInvoice to find matching supplier invoices
   5. For bank fees/interest: POST /ledger/voucher with debit/credit postings
   CRITICAL: A plan with ONLY GET calls scores 0%. You MUST include PUT /:createPayment calls.
+  CRITICAL: Use the invoice IDs from step 1 GET response. Do NOT do additional GET calls by invoice number.
   Use the invoice IDs from step 1 directly — hardcode them in subsequent calls.
 
 GET /activity — Search for existing activities (MUST do before POST!)
@@ -1080,8 +1084,8 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                             print(f"    AUTO-FIX: supplierInvoice succeeded without department, id={rid}")
                             continue
 
-                # Auto-fix: supplierInvoice 500 — full cleanup retry (strip row, amountGross→amount, project)
-                if resp.status_code == 500 and method == "POST" and "/supplierInvoice" in path and body:
+                # Auto-fix: supplierInvoice 422/500 — full cleanup retry (strip row, amountGross→amount, try amountCurrency)
+                if resp.status_code in (422, 500) and method == "POST" and "/supplierInvoice" in path and body:
                     voucher = body.get("voucher", {})
                     for posting in voucher.get("postings", []):
                         if "amountGross" in posting and "amount" not in posting:
@@ -1090,7 +1094,7 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                         posting.pop("row", None)
                         posting.pop("project", None)
                         posting.pop("department", None)
-                    print(f"    AUTO-FIX: supplierInvoice 500, full cleanup retry")
+                    print(f"    AUTO-FIX: supplierInvoice {resp.status_code}, cleanup retry with 'amount'")
                     retry_resp = requests.post(url, auth=auth, json=body, timeout=30)
                     if retry_resp.status_code in (200, 201):
                         retry_data = retry_resp.json()
@@ -1099,6 +1103,20 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                         results.append({"status": retry_resp.status_code, "id": rid, "data": val})
                         print(f"    AUTO-FIX: supplierInvoice succeeded after cleanup, id={rid}")
                         continue
+                    # If still failing, try with amountCurrency instead of amount
+                    if retry_resp.status_code in (422, 500):
+                        for posting in voucher.get("postings", []):
+                            if "amount" in posting:
+                                posting["amountCurrency"] = posting.pop("amount")
+                        print(f"    AUTO-FIX: supplierInvoice retry with 'amountCurrency'")
+                        retry2_resp = requests.post(url, auth=auth, json=body, timeout=30)
+                        if retry2_resp.status_code in (200, 201):
+                            retry2_data = retry2_resp.json()
+                            val = retry2_data.get("value", retry2_data)
+                            rid = val.get("id") if isinstance(val, dict) else None
+                            results.append({"status": retry2_resp.status_code, "id": rid, "data": val})
+                            print(f"    AUTO-FIX: supplierInvoice succeeded with amountCurrency, id={rid}")
+                            continue
 
                 # Auto-fix: if salary/transaction fails with "virksomhet", create employment details and retry
                 if (resp.status_code == 422 and method == "POST"
