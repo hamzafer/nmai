@@ -1,8 +1,8 @@
 # Tripletex Task Index
 
-**Last updated:** 2026-03-21 22:22
-**Total unique task types seen:** 29 of 30
-**Total real submissions analyzed:** 116
+**Last updated:** 2026-03-21 22:28
+**Total unique task types seen:** 30 of 30
+**Total real submissions analyzed:** 118
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -151,6 +151,8 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 22:20 | — | EMPLOYEE_WITH_DETAILS | 8/8 (100%) | PERFECT! French. 3/3 OK, 22s |
 | 2026-03-21 22:21 | — | SUPPLIER_INVOICE | 2/10 (20%) | Norwegian PDF. 3/4 OK |
 | 2026-03-21 22:22 | — | PROJECT_CREATE | 7/7 (100%) | PERFECT! Spanish. 4/4 OK, 22s |
+| 2026-03-21 22:24 | — | PAYROLL | ?/8 | French. 5/6 OK. May have scored! |
+| 2026-03-21 22:28 | — | PROJECT_FULL_CYCLE | ?/? (running) | Portuguese. Full ERP lifecycle |
 
 ---
 
