@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 21:10
 **Total unique task types seen:** 26 of 30
-**Total real submissions analyzed:** 77
+**Total real submissions analyzed:** 82
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -116,6 +116,12 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 21:00 | 20260321_210000.md | PRODUCT_CREATE | 7/7 (100%) | PERFECT! Portuguese. 2 calls, 0 errors, 13.77s |
 | 2026-03-21 21:02 | 20260321_210200.md | CUSTOM_DIMENSION_VOUCHER | 0/13 (0%) | Nynorsk. Used /ledger/closeGroup — wrong endpoint. 4th attempt, still 0% |
 | 2026-03-21 21:04 | 20260321_210400.md | CURRENCY_EXCHANGE_PAYMENT | 2/10 (20%) | Spanish. Found existing entities. Wrong disagio account (7960 vs 8160). Voucher failed |
+| 2026-03-21 21:08 | 20260321_210800b.md | PDF_EMPLOYEE_CONTRACT | 8/14 (57%) | Portuguese. Best score yet. Employment details cascading failures |
+| 2026-03-21 21:09 | — | BANK_RECONCILIATION_CSV | 0/10 (0%) | Portuguese. 9/14 OK but still 0% score |
+| 2026-03-21 21:12 | — | CREDIT_NOTE | 8/8 (100%) | PERFECT! English. 2/3 OK, 20s |
+| 2026-03-21 21:13 | — | PROJECT_FIXED_PRICE | 2/8 (25%) | Norwegian. 5/7 OK, 84.66s |
+| 2026-03-21 21:18 | — | PAYMENT_REVERSAL | 2/8 (25%) | Portuguese. 2/3 OK, 73.6s |
+| 2026-03-21 21:21 | — | YEAR_END_CLOSING | 6/10 (60%) | Norwegian. 7/13 OK, 63s. Depreciation + tax provision |
 
 ---
 
