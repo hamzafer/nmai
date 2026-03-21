@@ -83,7 +83,10 @@ POST /product — Create a product (only if GET finds nothing)
   Required: name
   Optional: costExcludingVatCurrency, priceExcludingVatCurrency, vatType ({"id": N})
   IMPORTANT: Do NOT include the "number" field — product names AND numbers often already exist.
-  NOTE: vatType.id must be an integer. Common: id=3 for 25% MVA (outgoing). If unsure, omit vatType.
+  NOTE: vatType uses {"id": N} where N = the vatType number. Common values:
+    - {"id": 3} = 25% MVA (standard Norwegian outgoing)
+    - {"id": 6} = 0% VAT (utenfor mva-loven / exempt)
+  NEVER do GET /ledger/vatType — just use the ID directly.
   CRITICAL: When GET /product finds a product, use THAT call's {result_N_id} for the order.
   Do NOT also POST /product — it WILL fail because the product already exists.
 
@@ -107,11 +110,14 @@ POST /order — Create an order
   NOTE: Do NOT use "receiver" — use "customer" for the customer reference
 
 PUT /order/{id}/:invoice — Convert order to invoice
-  Pass invoiceDate and invoiceDueDate as QUERY PARAMETERS in the URL:
-  PUT /order/123/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15
-  Alternative URL format if /:invoice gives 404: PUT /order/invoice/{id}?invoiceDate=...&invoiceDueDate=...
-  NOTE: Do NOT put these in the JSON body — they MUST be query params.
-  You can also add sendToCustomer=true as query param to send it immediately.
+  CRITICAL: invoiceDate and invoiceDueDate go in the URL as QUERY PARAMS. Body MUST be {} (empty).
+
+  CORRECT: {"method": "PUT", "path": "/order/123/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15", "body": {}}
+  WRONG:   {"method": "PUT", "path": "/order/123/:invoice", "body": {"invoiceDate": "2026-01-15"}}
+           ^^^ Dates in body are IGNORED — you get "invoiceDate: Kan ikke være null"
+
+  To also send: add &sendToCustomer=true to the query string.
+  Alternative if /:invoice gives 404: PUT /order/invoice/{id}?invoiceDate=...&invoiceDueDate=...
 
 PUT /invoice/{id}/:send — Send an existing invoice
   Pass sendType as query param: PUT /invoice/123/:send?sendType=EMAIL
@@ -237,12 +243,15 @@ Pattern 4 — Create and invoice an order:
   {"method": "POST", "path": "/department", "body": {"name": "General", "departmentNumber": 1}, "description": "Create department"},
   {"method": "POST", "path": "/employee", "body": {"firstName": "Admin", "lastName": "User", "email": "admin@example.org", "userType": "STANDARD", "department": {"id": "{prev_id}"}}, "description": "Create employee", "depends_on": 0},
   {"method": "POST", "path": "/customer", "body": {"name": "Acme AS", "email": "acme@example.org", "isCustomer": true, "organizationNumber": "123456789"}, "description": "Create customer"},
-  {"method": "POST", "path": "/product", "body": {"name": "Service", "priceExcludingVatCurrency": 10000}, "description": "Create product"},
+  {"method": "POST", "path": "/product", "body": {"name": "Service", "priceExcludingVatCurrency": 10000, "vatType": {"id": 3}}, "description": "Create product"},
   {"method": "POST", "path": "/order", "body": {"customer": {"id": "{result_2_id}"}, "deliveryDate": "2026-01-15", "orderDate": "2026-01-15", "orderLines": [{"product": {"id": "{result_3_id}"}, "count": 1}]}, "description": "Create order"},
   {"method": "PUT", "path": "/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15&sendToCustomer=true", "body": {}, "description": "Convert order to invoice and send", "depends_on": 4}
 ]
 ```
-NOTE: No bank account setup needed — invoice works through the competition proxy.
+NOTE: If the task says "send" (opprett og SEND, erstellen und SENDEN, create and send):
+  Preferred: add sendToCustomer=true as query param on the :invoice call (shown above).
+  Fallback: add a separate send step after invoice conversion:
+    {"method": "PUT", "path": "/invoice/{prev_id}/:send?sendType=EMAIL", "body": {}, "description": "Send invoice", "depends_on": 5}
 
 Pattern 5 — Create invoice + register payment:
 ```json
@@ -250,7 +259,7 @@ Pattern 5 — Create invoice + register payment:
   {"method": "POST", "path": "/department", "body": {"name": "General", "departmentNumber": 1}, "description": "Create department"},
   {"method": "POST", "path": "/employee", "body": {"firstName": "Admin", "lastName": "User", "email": "admin@example.org", "userType": "STANDARD", "department": {"id": "{prev_id}"}}, "description": "Create employee", "depends_on": 0},
   {"method": "POST", "path": "/customer", "body": {"name": "Client AS", "email": "client@example.org", "isCustomer": true, "organizationNumber": "123456789"}, "description": "Create customer"},
-  {"method": "POST", "path": "/product", "body": {"name": "Service", "priceExcludingVatCurrency": 10000}, "description": "Create product"},
+  {"method": "POST", "path": "/product", "body": {"name": "Service", "priceExcludingVatCurrency": 10000, "vatType": {"id": 3}}, "description": "Create product"},
   {"method": "POST", "path": "/order", "body": {"customer": {"id": "{result_2_id}"}, "deliveryDate": "2026-01-15", "orderDate": "2026-01-15", "orderLines": [{"product": {"id": "{result_3_id}"}, "count": 1}]}, "description": "Create order"},
   {"method": "PUT", "path": "/order/{prev_id}/:invoice?invoiceDate=2026-01-15&invoiceDueDate=2026-02-15", "body": {}, "description": "Convert order to invoice", "depends_on": 4},
   {"method": "PUT", "path": "/invoice/{prev_id}/:payment?paymentDate=2026-01-20&paymentTypeId=1&paidAmount=12500&paidAmountCurrency=12500", "body": {}, "description": "Register full payment", "depends_on": 5}
@@ -444,6 +453,24 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                 results.append({"error": "Null ID reference in body", "id": None})
                 continue
 
+        # Auto-strip fields that don't exist on these endpoints
+        if method == "POST" and body:
+            if "/employee/employment" in path:
+                for bad_field in ("employmentType", "jobCode"):
+                    if bad_field in body:
+                        print(f"  [{i}] AUTO-STRIP: removing invalid field '{bad_field}' from employment body")
+                        body.pop(bad_field)
+            if path.strip("/") == "employee":
+                for bad_field in ("percentOfFullTimeEquivalent", "salary", "monthlySalary", "startDate"):
+                    if bad_field in body:
+                        print(f"  [{i}] AUTO-STRIP: removing invalid field '{bad_field}' from employee body")
+                        body.pop(bad_field)
+                # Validate Norwegian NIN checksum — strip if invalid to avoid 422
+                nin = body.get("nationalIdentityNumber")
+                if nin and not _validate_norwegian_nin(nin):
+                    print(f"  [{i}] AUTO-STRIP: invalid NIN checksum '{nin}', removing to avoid 422")
+                    body.pop("nationalIdentityNumber")
+
         # Auto-lookup: if POST /employee, check if email already exists first
         if method == "POST" and path.strip("/") == "employee" and body and body.get("email"):
             email = body["email"]
@@ -493,6 +520,14 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                     result_id = values_list[0].get("id") if values_list else None
                     if values_list:
                         print(f"    (list: {len(values_list)} results, first id={result_id})")
+                    # Smart extraction: for salary types, prefer Fastlønn over first result
+                    if method == "GET" and "/salary/type" in path and values_list:
+                        for st in values_list:
+                            name = st.get("name", "").lower()
+                            if "fastlønn" in name or "fastlonn" in name:
+                                result_id = st["id"]
+                                print(f"    (salary types: using Fastlønn id={result_id})")
+                                break
                 else:
                     value = data
                     result_id = data.get("id") if isinstance(data, dict) else None
@@ -535,11 +570,16 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                         pay_date = params.get("paymentDate", ["2026-01-15"])[0]
                         amount = params.get("paidAmount", params.get("paidAmountCurrency", [None]))[0]
                         if amount:
-                            tried = path.split("/:")[-1].split("?")[0]
-                            alternatives = [a for a in ["payment", "createPayment", "pay"] if a != tried]
+                            tried_action = path.split("/:")[-1].split("?")[0]
+                            orig_tid = params.get("paymentTypeId", [None])[0]
+                            # Include original endpoint (with correct typeIds) + alternatives
+                            all_actions = [tried_action] + [a for a in ["payment", "createPayment", "pay"] if a != tried_action]
                             payment_fixed = False
-                            for alt in alternatives:
+                            for alt in all_actions:
                                 for tid in [1, 2]:
+                                    # Skip the exact combo that just failed
+                                    if alt == tried_action and str(tid) == str(orig_tid):
+                                        continue
                                     alt_url = f"{base_url}/invoice/{inv_id}/:{alt}?paymentDate={pay_date}&paymentTypeId={tid}&paidAmount={amount}&paidAmountCurrency={amount}"
                                     alt_resp = requests.put(alt_url, auth=auth, json={}, timeout=15)
                                     print(f"    AUTO-FIX: :{alt} typeId={tid} -> {alt_resp.status_code}")
@@ -856,9 +896,20 @@ Common issues:
 - "Produktnummeret NNNN er i bruk" = product number exists. Try GET /product?number=NNNN to find it. If GET returns 404, retry POST /product WITHOUT the number field.
 - If GET returns a list, the ID is in values[0].id — use that integer directly.
 - If PUT /order/ID/:invoice returns 404, try PUT /order/:invoice/ID or POST /invoice with orders: [{{"id": ORDER_ID}}]
+- If PUT /order/ID/:invoice returns "invoiceDate: Kan ikke være null", you put dates in the body.
+  Dates MUST be query params in the URL, body MUST be {{}}. Example:
+  {{"method": "PUT", "path": "/order/ID/:invoice?invoiceDate=YYYY-MM-DD&invoiceDueDate=YYYY-MM-DD", "body": {{}}}}
+- If task says "send"/"sende"/"senden"/"envoyer"/"enviar" but invoice was created without sending:
+  PUT /invoice/INVOICE_ID/:send?sendType=EMAIL with body: {{}}
 - For payment: PUT /invoice/{id}/:payment?paymentDate=YYYY-MM-DD&paymentTypeId=1&paidAmount=N&paidAmountCurrency=N
   DO NOT use :createPayment (404). DO NOT try GET /ledger/paymentType (404).
   paymentTypeId MUST be 1 (not 0). paidAmount must INCLUDE VAT (use invoice "amount" field).
+- "Feltet eksisterer ikke i objektet" on /employee/employment = remove "employmentType" (doesn't exist).
+  Only valid fields: employee, startDate, endDate, percentOfFullTimeEquivalent, occupationCode.
+- For payslip: field is "specifications" NOT "payslipSpecifications".
+  Each spec: {{"salaryType": {{"id": N}}, "rate": N, "count": 1, "amount": N}}
+  GET /salary/type first to find valid IDs. "Fastlønn" = base salary.
+- If nationalIdentityNumber caused 422 ("Ugyldig format"), OMIT it — create employee without it.
 
 Provide a COMPLETE corrected JSON array of ONLY the calls that still need to succeed.
 DO NOT repeat calls that already returned 200/201 — those entities exist and their IDs are in the results above.
