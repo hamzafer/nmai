@@ -937,7 +937,7 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
 
         # Auto-strip banned fields from employment
         if method == "POST" and "/employee/employment" in path and body:
-            for bad in ("percentOfFullTimeEquivalent", "employmentType", "salary", "monthlySalary"):
+            for bad in ("percentOfFullTimeEquivalent", "employmentType", "salary", "monthlySalary", "occupationCode"):
                 if bad in body:
                     body.pop(bad)
                     print(f"  [{i}] AUTO-STRIP: removed '{bad}' from employment (banned field)")
