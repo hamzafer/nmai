@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 22:28
 **Total unique task types seen:** 30 of 30
-**Total real submissions analyzed:** 125
+**Total real submissions analyzed:** 133
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -158,6 +158,14 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 22:32 | — | PDF_EMPLOYEE_CONTRACT | 4/11 (36%) | Norwegian PDF. 4/7 OK |
 | 2026-03-21 22:36 | — | PDF_EMPLOYEE_CONTRACT | 9/14 (64%) | Nynorsk PDF. Best score! 3/4 OK |
 | 2026-03-21 22:39 | — | YEAR_END_CLOSING | 6/10 (60%) | Spanish. 14/15 OK! Nearly all calls succeeded |
+| 2026-03-21 22:41 | — | MONTH_END_CLOSING | 7/10 (70%) | German? 10/10 OK |
+| 2026-03-21 22:42 | — | CUSTOMER_CREATE | 8/8 (100%) | English. Address included |
+| 2026-03-21 22:45 | — | BANK_RECONCILIATION_CSV | 0/10 (0%) | Still 0% |
+| 2026-03-21 22:46 | — | LEDGER_ANALYSIS_PROJECT | 7/10 (70%) | English. 7/10 OK |
+| 2026-03-21 22:48 | — | PROJECT_FULL_CYCLE | 12/22 (55%) | Best! Up from 45%. 61s |
+| 2026-03-21 22:48 | — | PDF_EMPLOYEE_CONTRACT | ?/14 | Spanish. 6/7 OK |
+| 2026-03-21 22:46 | — | MONTH_END_CLOSING | 10/10 (100%) | German. PERFECT repeat! |
+| 2026-03-21 22:42 | — | CUSTOMER_CREATE | ?/8 | English. 1/1 OK |
 
 ---
 
