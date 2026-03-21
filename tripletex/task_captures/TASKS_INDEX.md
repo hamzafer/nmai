@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 21:10
 **Total unique task types seen:** 24 of 30
-**Total real submissions analyzed:** 59
+**Total real submissions analyzed:** 60
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -98,6 +98,7 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 19:58 | 20260321_195800.md | TRAVEL_EXPENSE | 4.5/8 (56%) | Spanish. 0 errors, all 9 calls OK. Score low: wrong per diem rate type, cost categories |
 | 2026-03-21 20:03 | 20260321_200300.md | PAYMENT_REVERSAL | 6/8 (75%) | NEW — bank returned payment, reverse via voucher. 0 errors, 5 calls |
 | 2026-03-21 21:08 | 20260321_210800.md | INVOICE_PAYMENT | 2/7 (29%) | French. Created new entities instead of finding existing unpaid invoice. 404 on payment |
+| 2026-03-21 21:11 | 20260321_211100.md | TIME_TRACKING | 4/8 (50%) | Portuguese. Timesheet OK, hourly rate set in fix round, project invoice creation failed |
 
 ---
 
