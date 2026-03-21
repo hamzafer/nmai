@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 21:10
 **Total unique task types seen:** 26 of 30
-**Total real submissions analyzed:** 69
+**Total real submissions analyzed:** 70
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -111,6 +111,7 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 20:43 | 20260321_204400.md | BANK_RECONCILIATION_CSV | 0/10 (0%) | German. 14/19 OK but reconciliation matching wrong. Still 0% |
 | 2026-03-21 20:46 | 20260321_204600.md | CUSTOMER_CREATE | 5/8 (63%) | Norwegian. 1 call, 0 errors, 7.4s. Missing address fields cost points |
 | 2026-03-21 20:48 | 20260321_204800.md | CUSTOM_DIMENSION_VOUCHER | 0/13 (0%) | Spanish. Created depts instead of dimensions. Still unsolved |
+| 2026-03-21 20:53 | 20260321_205300.md | RECEIPT_EXPENSE_PDF | 0/10 (0%) | English. Togbillett receipt PDF. 4/5 OK but supplierInvoice creation failed |
 
 ---
 
