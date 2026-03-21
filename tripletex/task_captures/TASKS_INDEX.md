@@ -1,7 +1,7 @@
 # Tripletex Task Index
 
-**Last updated:** 2026-03-21 21:10
-**Total unique task types seen:** 26 of 30
+**Last updated:** 2026-03-21 22:22
+**Total unique task types seen:** 29 of 30
 **Total real submissions analyzed:** 82
 
 ## Status Legend
