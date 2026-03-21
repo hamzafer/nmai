@@ -1,8 +1,8 @@
 # Tripletex Task Index
 
-**Last updated:** 2026-03-21 18:49
-**Total unique task types seen:** 20 of 30
-**Total real submissions analyzed:** 49
+**Last updated:** 2026-03-21 18:59
+**Total unique task types seen:** 21 of 30
+**Total real submissions analyzed:** 51
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -84,6 +84,7 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 18:10 | 20260321_181100.md | RECEIPT_EXPENSE_PDF | 0/10 (0%) | PDF not read, supplier invoice credit posting missing, account lookup wrong |
 | 2026-03-21 18:15 | 20260321_181500.md | DEPARTMENTS_CREATE | 7/7 (100%) | PERFECT — 3 POST /department, 0 errors, 10s |
 | 2026-03-21 18:47 | 20260321_184700.md | ORDER_MULTI_PRODUCT_INVOICE_PAY | 0/8 (0%) | Everything OK except payment: used `:payment` instead of `:createPayment` |
+| 2026-03-21 18:54 | 20260321_185400.md | TIME_TRACKING_PROJECT_INVOICE | 4/8 (50%) | Activity already exists (GET first), employment needs DOB, project invoice 404 |
 
 ---
 
