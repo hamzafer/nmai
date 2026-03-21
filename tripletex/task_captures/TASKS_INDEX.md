@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 22:28
 **Total unique task types seen:** 30 of 30
-**Total real submissions analyzed:** 133
+**Total real submissions analyzed:** 136
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -166,6 +166,8 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 22:48 | — | PDF_EMPLOYEE_CONTRACT | ?/14 | Spanish. 6/7 OK |
 | 2026-03-21 22:46 | — | MONTH_END_CLOSING | 10/10 (100%) | German. PERFECT repeat! |
 | 2026-03-21 22:42 | — | CUSTOMER_CREATE | ?/8 | English. 1/1 OK |
+| 2026-03-21 22:50 | — | BANK_RECONCILIATION_CSV | 0/10 (0%) | Still 0% |
+| 2026-03-21 22:54 | — | CUSTOM_DIMENSION_VOUCHER | 13/13 (100%) | PERFECT!!! Used /ledger/accountingDimensionName + accountingDimensionValue! From 0% to 100%! |
 
 ---
 
