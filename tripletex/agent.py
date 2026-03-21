@@ -824,6 +824,19 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                     print(f"  [{i}] AUTO-FIX: converted amountGross→amount in supplierInvoice posting")
                 if "row" in posting:
                     posting.pop("row")
+            # Auto-fix: if 2 postings exist but credit gross is truncated (off by < 5 NOK), correct it
+            if len(postings) == 2:
+                debit = postings[0]
+                credit = postings[1]
+                debit_amt = abs(debit.get("amount", 0))
+                credit_amt = abs(credit.get("amount", 0))
+                vat_id = debit.get("vatType", {}).get("id") if debit.get("vatType") else None
+                if vat_id:
+                    vat_mult = {11: 1.25, 12: 1.15, 13: 1.12}.get(vat_id, 1.0)
+                    expected_gross = round(debit_amt * vat_mult, 2)
+                    if credit_amt != expected_gross and 0 < abs(credit_amt - expected_gross) < 5:
+                        credit["amount"] = -expected_gross
+                        print(f"  [{i}] AUTO-FIX: corrected credit amount {-credit_amt} → {-expected_gross}")
             # Auto-add credit posting if only 1 posting (debit only → "credit posting missing")
             if len(postings) == 1:
                 debit = postings[0]
