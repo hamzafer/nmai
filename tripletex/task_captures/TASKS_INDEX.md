@@ -1,8 +1,8 @@
 # Tripletex Task Index
 
-**Last updated:** 2026-03-21 19:06
-**Total unique task types seen:** 21 of 30
-**Total real submissions analyzed:** 53
+**Last updated:** 2026-03-21 19:11
+**Total unique task types seen:** 22 of 30
+**Total real submissions analyzed:** 54
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -52,6 +52,7 @@
 
 | Task Type | Status | Best Result | Has Files | Attempts |
 |-----------|--------|-------------|-----------|----------|
+| MONTH_END_CLOSING | FAILED | 2/10 | No | 1 |
 | YEAR_END_CLOSING | PARTIAL | 13/17 | No | 1 |
 | PDF_EMPLOYEE_CONTRACT | PARTIAL | 4/8 | Yes (PDF) | 2 |
 | BANK_RECONCILIATION_CSV | FAILED | 0/10 | Yes (CSV) | 1 |
@@ -89,6 +90,7 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 18:57 | 20260321_185700.md | BANK_RECONCILIATION_CSV | 0/10 (0%) | CSV read but invoice lookup by number returned empty, all payments skipped |
 | 2026-03-21 19:01 | 20260321_190100.md | TRAVEL_EXPENSE | 4.5/8 (56%) | ALL 9 calls OK! Score low due to field values (rate/cost categories, dates) |
 | 2026-03-21 19:05 | 20260321_190500.md | CUSTOM_DIMENSION_VOUCHER | 0/13 (0%) | Repeat — same issues, no API for free dimensions, voucher postings fail |
+| 2026-03-21 19:10 | 20260321_191000.md | MONTH_END_CLOSING | 2/10 (20%) | NEW — all 6 account lookups OK, all 3 voucher postings fail (format issue) |
 
 ---
 
