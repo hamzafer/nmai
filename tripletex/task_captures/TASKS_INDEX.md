@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 21:10
 **Total unique task types seen:** 26 of 30
-**Total real submissions analyzed:** 63
+**Total real submissions analyzed:** 64
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -105,6 +105,7 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 21:15 | 20260321_211500.md | LEDGER_ANALYSIS_PROJECT | 0/10 (0%) | NEW TYPE — German. Only GET calls, no projects/activities created. Agent stopped after reading ledger |
 | 2026-03-21 21:16 | 20260321_211600.md | PROJECT_FULL_CYCLE | 2/11 (18%) | NEW TYPE — Norwegian. Full project lifecycle: budget, 2 employees timesheet, supplier cost, invoice. Many 422/404 errors |
 | 2026-03-21 21:33 | 20260321_213300.md | SUPPLIER_INVOICE | 2/10 (20%) | German. PDF attached (small). Supplier created OK but invoice registration 500 error |
+| 2026-03-21 21:35 | 20260321_213500.md | PROJECT_FIXED_PRICE | 2/8 (25%) | Norwegian. Fixed price + 25% partial invoice. 422 on invoice creation |
 
 ---
 
