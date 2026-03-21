@@ -54,8 +54,12 @@ POST /employee/employment — Create employment record (for start date)
   IMPORTANT: Employee MUST have dateOfBirth set BEFORE creating employment — otherwise 422.
   If dateOfBirth wasn't set on POST /employee, use PUT /employee/{id} to add it first.
   Use "1990-01-15" as default dateOfBirth if not specified in the task.
-  Optional: endDate, percentOfFullTimeEquivalent, occupationCode ({"id": N})
-  BANNED: "employmentType" does NOT exist — Tripletex returns 422 if included. Do NOT send it.
+  Optional: endDate, occupationCode ({"id": N})
+  BANNED FIELDS (cause 422 "Feltet eksisterer ikke"):
+    - "employmentType" — does NOT exist
+    - "percentOfFullTimeEquivalent" — does NOT exist on this endpoint
+    - "salary", "monthlySalary" — do NOT exist on this endpoint
+  Only send: employee, startDate, endDate, occupationCode. Nothing else.
 
 POST /customer — Create a customer
   Required: name, email, isCustomer (must be true)
