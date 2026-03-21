@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 22:22
 **Total unique task types seen:** 29 of 30
-**Total real submissions analyzed:** 88
+**Total real submissions analyzed:** 92
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -127,6 +127,9 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 21:27 | — | PROJECT_CREATE | 0/7 (0%) | Portuguese. 4/4 OK but 0% — wrong project structure? |
 | 2026-03-21 21:28 | — | PDF_EMPLOYEE_CONTRACT | 7/14 (50%) | French. 4/8 OK, 46.85s |
 | 2026-03-21 21:29 | — | CURRENCY_EXCHANGE_PAYMENT | 7/10 (70%) | Spanish. 4/6 OK. Best score for disagio type |
+| 2026-03-21 21:33 | — | PDF_EMPLOYEE_CONTRACT | 8/14 (57%) | English. 5/7 OK |
+| 2026-03-21 21:34 | — | MONTH_END_CLOSING | 10/10 (100%) | PERFECT! Spanish. Accrual + depreciation + salary provision. Best score! |
+| 2026-03-21 21:35 | — | PAYROLL | ?/? (pending) | Spanish. Salary + bonus. Running... |
 
 ---
 
