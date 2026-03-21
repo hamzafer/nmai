@@ -1511,6 +1511,8 @@ Common issues:
 - "Produktnummeret NNNN er i bruk" = product number exists. Try GET /product?number=NNNN to find it. If GET returns 404, retry POST /product WITHOUT the number field.
 - If GET returns a list, the ID is in values[0].id — use that integer directly.
 - If PUT /order/ID/:invoice returns 404, try PUT /order/:invoice/ID or POST /invoice with orders: [{{"id": ORDER_ID}}]
+- If PUT /order/ID/:invoice returns 422 on a time tracking / project task, try PUT /project/PROJECT_ID/:createInvoice?invoiceDate=YYYY-MM-DD instead.
+  Project invoices use a different endpoint than order-based invoices.
 - If PUT /order/ID/:invoice returns "invoiceDate: Kan ikke være null", you put dates in the body.
   Dates MUST be query params in the URL, body MUST be {{}}. Example:
   {{"method": "PUT", "path": "/order/ID/:invoice?invoiceDate=YYYY-MM-DD&invoiceDueDate=YYYY-MM-DD", "body": {{}}}}
