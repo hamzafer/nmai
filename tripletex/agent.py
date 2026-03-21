@@ -80,16 +80,13 @@ POST /supplierInvoice — Register a supplier/vendor invoice (incoming invoice)
   Required: supplier ({"id": N}), invoiceNumber (string), invoiceDate (YYYY-MM-DD), invoiceDueDate (YYYY-MM-DD)
   NOTE: Use "invoiceDueDate" NOT "dueDate" — "dueDate" doesn't exist on this endpoint.
   Required: voucher with BALANCED postings (MUST have both debit AND credit — single posting WILL fail):
-  SUPPLIER INVOICE POSTINGS ARE DIFFERENT FROM LEDGER VOUCHER POSTINGS!
-    - Use "amount" field ONLY (NOT "amountGross", NOT "amountGrossCurrency")
-    - Do NOT include "row" field
-    - DEBIT: {"account": {"id": EXPENSE_ID}, "amount": NET_AMOUNT, "description": "...", "vatType": {"id": 11}}
-    - CREDIT: {"account": {"id": AP_ID}, "amount": -GROSS_AMOUNT, "description": "..."}
+  Use SAME posting format as ledger voucher — "row", "amountGross", "amountGrossCurrency":
+    - DEBIT: {"row": 1, "account": {"id": EXPENSE_ID}, "amountGross": NET_AMOUNT, "amountGrossCurrency": NET_AMOUNT, "description": "...", "vatType": {"id": 11}}
+    - CREDIT: {"row": 1, "account": {"id": AP_ID}, "amountGross": -GROSS_AMOUNT, "amountGrossCurrency": -GROSS_AMOUNT, "description": "..."}
   Tripletex auto-generates the VAT posting when vatType is set on the debit line.
-  Full example: {"voucher": {"date": "2026-01-15", "description": "Invoice", "postings": [
-    {"account": {"id": 123}, "amount": 67050, "description": "Expense", "vatType": {"id": 11}},
-    {"account": {"id": 456}, "amount": -83812.50, "description": "Accounts payable"}]}}
-  CRITICAL: Using "amountGross" or "row" on supplier invoice postings causes 500 server error!
+  Full example: {"voucher": {"date": "2026-01-15", "description": "Invoice from X", "postings": [
+    {"row": 1, "account": {"id": 123}, "amountGross": 67050, "amountGrossCurrency": 67050, "description": "Expense", "vatType": {"id": 11}},
+    {"row": 1, "account": {"id": 456}, "amountGross": -83812.50, "amountGrossCurrency": -83812.50, "description": "AP"}]}}
 
   Input VAT types (inngående avgift — use these directly, NEVER GET /ledger/vatType):
     - {"id": 11} = 25% input VAT (Fradrag inngående avgift, høy sats)
@@ -787,6 +784,28 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                 if "amountGross" in posting and "amountGrossCurrency" not in posting:
                     posting["amountGrossCurrency"] = posting["amountGross"]
 
+        # Pre-fix: salary/transaction — replace hardcoded salary type IDs with real ones from prior GET
+        if method == "POST" and "/salary/transaction" in path and body:
+            for payslip in body.get("payslips", []):
+                for spec in payslip.get("specifications", []):
+                    st = spec.get("salaryType", {})
+                    if isinstance(st.get("id"), int) and st["id"] < 1000:
+                        # Find Fastlønn/Bonus from prior GET /salary/type result
+                        for prev_r in results:
+                            if prev_r.get("status") == 200 and prev_r.get("data"):
+                                vals = prev_r["data"].get("values", []) if isinstance(prev_r["data"], dict) else []
+                                if not vals:
+                                    continue
+                                # Try to match by common names
+                                for v in vals:
+                                    name = v.get("name", "").lower()
+                                    if "fastlønn" in name or "fastlonn" in name:
+                                        old_id = st["id"]
+                                        st["id"] = v["id"]
+                                        print(f"  [{i}] AUTO-FIX: salary type {old_id} → Fastlønn id={v['id']}")
+                                        break
+                                break
+
         url = f"{base_url}{path}"
         print(f"  [{i}] {method} {path} — {desc}")
 
@@ -909,6 +928,25 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                                 results.append({"status": retry_resp.status_code, "id": rid, "data": val})
                                 print(f"    AUTO-FIX: employment created after setting DOB, id={rid}")
                                 continue
+
+                # Auto-fix: if supplier invoice returns 500, retry without department on postings
+                if resp.status_code == 500 and method == "POST" and "/supplierInvoice" in path and body:
+                    voucher = body.get("voucher", {})
+                    changed = False
+                    for posting in voucher.get("postings", []):
+                        if "department" in posting:
+                            posting.pop("department")
+                            changed = True
+                    if changed:
+                        print(f"    AUTO-FIX: supplierInvoice 500, retrying without department on postings")
+                        retry_resp = requests.post(url, auth=auth, json=body, timeout=30)
+                        if retry_resp.status_code in (200, 201):
+                            retry_data = retry_resp.json()
+                            val = retry_data.get("value", retry_data)
+                            rid = val.get("id") if isinstance(val, dict) else None
+                            results.append({"status": retry_resp.status_code, "id": rid, "data": val})
+                            print(f"    AUTO-FIX: supplierInvoice succeeded without department, id={rid}")
+                            continue
 
                 # Auto-fix: if :invoice fails with "bankkontonummer", set up bank account and retry
                 if (resp.status_code == 422 and method == "PUT" and ":invoice" in path
