@@ -1,8 +1,8 @@
 # Tripletex Task Index
 
-**Last updated:** 2026-03-21 18:07
-**Total unique task types seen:** 18 of 30
-**Total real submissions analyzed:** 46
+**Last updated:** 2026-03-21 18:12
+**Total unique task types seen:** 19 of 30
+**Total real submissions analyzed:** 47
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -46,6 +46,7 @@
 | Task Type | Status | Best Result | Has Files | Attempts |
 |-----------|--------|-------------|-----------|----------|
 | CUSTOM_DIMENSION_VOUCHER | FAILED | 0/6 | No | 1 |
+| RECEIPT_EXPENSE_PDF | FAILED | 0/10 | Yes (PDF) | 1 |
 
 ## Tier 3 (x3 multiplier)
 
@@ -80,6 +81,7 @@ Possible unseen types based on Tripletex API capabilities:
 |-----------|------|-----------|-------|-------|
 | 2026-03-21 18:01 | 20260321_180100.md | SUPPLIER_INVOICE (PDF) | 2/10 (20%) | PDF not extracted, credit posting missing |
 | 2026-03-21 18:07 | 20260321_180700.md | CUSTOM_DIMENSION_VOUCHER | 0/13 (0%) | /ledger/closeGroup 405, wrong endpoint for free dimensions |
+| 2026-03-21 18:10 | 20260321_181100.md | RECEIPT_EXPENSE_PDF | 0/10 (0%) | PDF not read, supplier invoice credit posting missing, account lookup wrong |
 
 ---
 
