@@ -150,15 +150,15 @@ GET /invoice — Search for invoices
 POST /invoice — Create an invoice directly
   Required: invoiceDate (YYYY-MM-DD), invoiceDueDate (YYYY-MM-DD), orders (array of {"id": N})
 
-PUT /invoice/{id}/:payment — Register payment on an invoice
+PUT /invoice/{id}/:createPayment — Register payment on an invoice
   USE THIS ENDPOINT:
-  PUT /invoice/{id}/:payment?paymentDate=YYYY-MM-DD&paymentTypeId=1&paidAmount=AMOUNT&paidAmountCurrency=AMOUNT
+  PUT /invoice/{id}/:createPayment?paymentDate=YYYY-MM-DD&paymentTypeId=1&paidAmount=AMOUNT&paidAmountCurrency=AMOUNT
 
   IMPORTANT: paymentTypeId MUST be 1 (never 0). Amount must be total INCLUDING VAT.
   If task says "9400 NOK excl VAT" with 25% MVA, pay 11750 (9400 * 1.25).
   Use the invoice response "amount" field directly — it already includes VAT.
-  DO NOT use :createPayment (returns 404). DO NOT try GET /ledger/paymentType (returns 404).
-  If :payment returns 500, the fallback system will try alternative endpoints automatically.
+  DO NOT use /:payment (returns 404!). Use /:createPayment instead.
+  If :createPayment returns 500, the fallback system will try alternative endpoints automatically.
 
 POST /activity — Create an activity for time tracking
   Required: name, activityType ("PROJECT_GENERAL_ACTIVITY" or "TASK")
@@ -675,24 +675,37 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                             # Include original endpoint (with correct typeIds) + alternatives
                             all_actions = [tried_action] + [a for a in ["payment", "createPayment", "pay"] if a != tried_action]
                             payment_fixed = False
-                            for alt in all_actions:
-                                for tid in [1, 2]:
-                                    # Skip the exact combo that just failed
-                                    if alt == tried_action and str(tid) == str(orig_tid):
-                                        continue
-                                    alt_url = f"{base_url}/invoice/{inv_id}/:{alt}?paymentDate={pay_date}&paymentTypeId={tid}&paidAmount={amount}&paidAmountCurrency={amount}"
-                                    alt_resp = requests.put(alt_url, auth=auth, json={}, timeout=15)
-                                    print(f"    AUTO-FIX: :{alt} typeId={tid} -> {alt_resp.status_code}")
-                                    if alt_resp.status_code in (200, 201):
-                                        alt_data = alt_resp.json()
-                                        alt_value = alt_data.get("value", alt_data)
-                                        alt_id = alt_value.get("id") if isinstance(alt_value, dict) else None
-                                        results.append({"status": alt_resp.status_code, "id": alt_id, "data": alt_value})
-                                        print(f"    AUTO-FIX SUCCESS")
-                                        payment_fixed = True
+                            # Retry the original call after a short delay (invoice may need time to propagate)
+                            import time
+                            time.sleep(2)
+                            retry_url = f"{base_url}/invoice/{inv_id}/:{tried_action}?paymentDate={pay_date}&paymentTypeId=1&paidAmount={amount}&paidAmountCurrency={amount}"
+                            retry_resp = requests.put(retry_url, auth=auth, json={}, timeout=15)
+                            print(f"    AUTO-FIX: retry :{tried_action} typeId=1 after 2s -> {retry_resp.status_code}")
+                            if retry_resp.status_code in (200, 201):
+                                retry_data = retry_resp.json()
+                                retry_value = retry_data.get("value", retry_data)
+                                retry_id = retry_value.get("id") if isinstance(retry_value, dict) else None
+                                results.append({"status": retry_resp.status_code, "id": retry_id, "data": retry_value})
+                                print(f"    AUTO-FIX SUCCESS (after delay)")
+                                payment_fixed = True
+                            if not payment_fixed:
+                                for alt in all_actions:
+                                    for tid in [1, 2]:
+                                        if alt == tried_action and str(tid) == str(orig_tid):
+                                            continue
+                                        alt_url = f"{base_url}/invoice/{inv_id}/:{alt}?paymentDate={pay_date}&paymentTypeId={tid}&paidAmount={amount}&paidAmountCurrency={amount}"
+                                        alt_resp = requests.put(alt_url, auth=auth, json={}, timeout=15)
+                                        print(f"    AUTO-FIX: :{alt} typeId={tid} -> {alt_resp.status_code}")
+                                        if alt_resp.status_code in (200, 201):
+                                            alt_data = alt_resp.json()
+                                            alt_value = alt_data.get("value", alt_data)
+                                            alt_id = alt_value.get("id") if isinstance(alt_value, dict) else None
+                                            results.append({"status": alt_resp.status_code, "id": alt_id, "data": alt_value})
+                                            print(f"    AUTO-FIX SUCCESS")
+                                            payment_fixed = True
+                                            break
+                                    if payment_fixed:
                                         break
-                                if payment_fixed:
-                                    break
                             if payment_fixed:
                                 continue
 
