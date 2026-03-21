@@ -208,8 +208,12 @@ GET /activity — Search for existing activities (MUST do before POST!)
   Activities often PRE-EXIST in sandbox. ALWAYS GET first, only POST if empty.
 
 POST /activity — Create activity (ONLY if GET found nothing!)
-  Required: name, activityType ("PROJECT_GENERAL_ACTIVITY" or "TASK")
-  CRITICAL: "Navnet er i bruk" = name exists. GET /activity?name=X first and use existing ID.
+  Required: name, activityType
+  CRITICAL: activityType MUST be "PROJECT_GENERAL_ACTIVITY" for timesheet entries.
+  Using "GENERAL_ACTIVITY" or "TASK" causes "Aktiviteten kan ikke benyttes" on timesheets.
+  ALWAYS use activityType: "PROJECT_GENERAL_ACTIVITY" — this is the only type that works with timesheets.
+  NOTE: "Navnet er i bruk" = name exists. GET /activity?name=X first, but check its type!
+  If existing activity is GENERAL_ACTIVITY type, create a NEW one with PROJECT_GENERAL_ACTIVITY.
 
 POST /project/{projectId}/projectActivity — Link an activity to a project
   Required: activity ({"id": N})
@@ -271,11 +275,18 @@ POST /travelExpense/cost — Add individual expense to travel report
   To find payment types: GET /travelExpense/paymentType
 
 GET /salary/type — List salary types (needed for payroll)
-  Returns list of salary types with IDs. Look for "Fastlønn" (fixed salary), "Bonus", etc.
+  Make TWO lookups to get DIFFERENT IDs for base salary vs bonus:
+    GET /salary/type?name=Fastlønn → base salary type ID
+    GET /salary/type?name=Bonus → bonus type ID
+  CRITICAL: Do NOT use the same {result_N_id} for both — they MUST be different IDs!
 
 POST /salary/transaction — Create payroll (DO NOT use POST /salary/payslip — it doesn't exist!)
   Required: year (int), month (int), payslips (array)
-  Each payslip: {"employee": {"id": N}, "specifications": [{"salaryType": {"id": N}, "rate": N, "count": 1}]}
+  Each payslip needs SEPARATE salary type IDs:
+  {"employee": {"id": N}, "specifications": [
+    {"salaryType": {"id": FASTLONN_TYPE_ID}, "rate": BASE_SALARY, "count": 1},
+    {"salaryType": {"id": BONUS_TYPE_ID}, "rate": BONUS_AMOUNT, "count": 1}
+  ]}
   Optional on transaction: date (YYYY-MM-DD)
   Optional query param: ?generateTaxDeduction=true
   IMPORTANT: GET /salary/type FIRST to find valid salary type IDs. Use the ACTUAL IDs from the response.
@@ -436,18 +447,20 @@ Pattern 6 — Register a supplier:
 ]
 ```
 
-Pattern 8 — Register supplier invoice (with balanced voucher postings):
+Pattern 8 — Register supplier invoice (2-step: invoice + separate voucher):
 ```json
 [
   {"method": "POST", "path": "/supplier", "body": {"name": "Silveroak Ltd", "email": "faktura@silveroak.no", "organizationNumber": "945217456"}, "description": "Create supplier"},
   {"method": "GET", "path": "/ledger/account?numberFrom=6340&numberTo=6350&count=10", "body": null, "description": "Look up expense account"},
   {"method": "GET", "path": "/ledger/account?numberFrom=2400&numberTo=2410&count=10", "body": null, "description": "Look up accounts payable (2400)"},
-  {"method": "POST", "path": "/supplierInvoice", "body": {"supplier": {"id": "{result_0_id}"}, "invoiceNumber": "INV-2026-5539", "invoiceDate": "2026-02-28", "invoiceDueDate": "2026-03-30", "voucher": {"date": "2026-02-28", "description": "Sikkerhetsprogramvare", "postings": [{"account": {"id": "{result_1_id}"}, "amount": 67050, "description": "Sikkerhetsprogramvare", "vatType": {"id": 11}}, {"account": {"id": "{result_2_id}"}, "amount": -83812.50, "description": "Leverandørgjeld"}]}}, "description": "Register supplier invoice with balanced postings"}
+  {"method": "POST", "path": "/supplierInvoice", "body": {"supplier": {"id": "{result_0_id}"}, "invoiceNumber": "INV-2026-5539", "invoiceDate": "2026-02-28", "invoiceDueDate": "2026-03-30"}, "description": "Create supplier invoice (NO voucher in body)"},
+  {"method": "POST", "path": "/ledger/voucher", "body": {"date": "2026-02-28", "description": "Sikkerhetsprogramvare", "postings": [{"row": 1, "account": {"id": "{result_1_id}"}, "amountGross": 67050, "amountGrossCurrency": 67050, "vatType": {"id": 11}, "description": "Sikkerhetsprogramvare"}, {"row": 2, "account": {"id": "{result_2_id}"}, "amountGross": -83812.50, "amountGrossCurrency": -83812.50, "description": "Leverandørgjeld"}]}, "description": "Post accounting entry for supplier invoice"}
 ]
 ```
-NOTE: Use "amount" field for supplier invoice postings. Do NOT use "amountGross" or "row" on supplier invoices.
-NOTE: vatType {"id": 11} = 25% input VAT. Use directly — NEVER GET /ledger/vatType.
-NOTE: Debit expense NET amount WITH vatType. Credit AP GROSS amount (negative, NO vatType).
+CRITICAL: Do NOT include "voucher" in the /supplierInvoice body — it ALWAYS fails through the proxy.
+Use the 2-step approach: POST /supplierInvoice (no voucher) + POST /ledger/voucher (separate).
+The voucher uses amountGross/amountGrossCurrency and row (same format as all other voucher postings).
+NOTE: vatType {"id": 11} = 25% input VAT. {"id": 12} = 15%. {"id": 13} = 12%.
 
 Pattern 9 — Find existing unpaid invoice and register payment:
 ```json
@@ -727,6 +740,16 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                     if bad_field in body:
                         print(f"  [{i}] AUTO-STRIP: removing invalid field '{bad_field}' from orderline body")
                         body.pop(bad_field)
+                # Convert amount → unitPriceExcludingVatCurrency (amount doesn't exist on orderline)
+                if "amount" in body and "unitPriceExcludingVatCurrency" not in body:
+                    body["unitPriceExcludingVatCurrency"] = body.pop("amount")
+                    body.setdefault("count", 1)
+                    print(f"  [{i}] AUTO-FIX: converted amount→unitPriceExcludingVatCurrency on orderline")
+            if path.strip("/") == "activity":
+                # Force PROJECT_GENERAL_ACTIVITY — only type that works with timesheets
+                if not body.get("activityType") or body.get("activityType") == "GENERAL_ACTIVITY":
+                    body["activityType"] = "PROJECT_GENERAL_ACTIVITY"
+                    print(f"  [{i}] AUTO-FIX: set activityType to PROJECT_GENERAL_ACTIVITY")
         # Auto-fix: customer must have BOTH postalAddress and physicalAddress
         if method == "POST" and path.strip("/") == "customer" and body:
             pa = body.get("physicalAddress")
@@ -853,8 +876,13 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                         if not match and vals:
                             match = vals[0]  # fallback to first result if name filter worked
                         if match and match.get("id"):
+                            # Skip if wrong activity type (GENERAL_ACTIVITY can't be used for timesheets)
+                            act_type = match.get("activityType", "")
+                            if act_type == "GENERAL_ACTIVITY":
+                                print(f"  [{i}] AUTO-LOOKUP: activity '{act_name}' exists but type={act_type}, skipping (need PROJECT_GENERAL_ACTIVITY)")
+                                break  # Don't use it, fall through to POST
                             print(f"  [{i}] POST {path} — {desc}")
-                            print(f"    AUTO-LOOKUP: activity name='{act_name}' exists, id={match['id']}")
+                            print(f"    AUTO-LOOKUP: activity name='{act_name}' exists, id={match['id']}, type={act_type}")
                             results.append({"status": 200, "id": match["id"], "data": match})
                             found_activity = True
                             break
@@ -884,63 +912,93 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                 results.append({"status": 200, "id": pid, "data": found_product})
                 continue
 
-        # Auto-fix: supplier invoice postings — set ALL amount field variants
-        if method == "POST" and "/supplierInvoice" in path and body:
-            voucher = body.get("voucher", {})
-            postings = voucher.get("postings", [])
-            for posting in postings:
-                val = posting.get("amount") or posting.get("amountGross") or 0
-                posting["amount"] = val
+        # Auto-fix: strip voucher from supplierInvoice and inject separate POST /ledger/voucher
+        if method == "POST" and "/supplierInvoice" in path and body and body.get("voucher"):
+            voucher_data = body.pop("voucher")
+            postings = voucher_data.get("postings", [])
+            voucher_date = voucher_data.get("date", body.get("invoiceDate", "2026-01-01"))
+            voucher_desc = voucher_data.get("description", "Supplier invoice")
+
+            # Convert postings to /ledger/voucher format (amountGross + row)
+            for idx, posting in enumerate(postings):
+                val = posting.get("amountGross") or posting.get("amount") or 0
                 posting["amountGross"] = val
                 posting["amountGrossCurrency"] = val
-                posting["amountCurrency"] = val
-                posting.pop("row", None)
+                posting.pop("amount", None)
+                posting.pop("amountCurrency", None)
+                posting["row"] = idx + 1
                 posting.pop("project", None)
                 posting.pop("department", None)
-            print(f"  [{i}] AUTO-FIX: set all amount variants on {len(postings)} supplierInvoice postings")
-            # Auto-fix: if 2 postings exist but credit gross is truncated (off by < 5 NOK), correct it
-            if len(postings) == 2:
+
+            # Fix credit amount if VAT rounding is off
+            if len(postings) >= 2:
                 debit = postings[0]
                 credit = postings[1]
                 vat_id = debit.get("vatType", {}).get("id") if debit.get("vatType") else None
                 if vat_id:
-                    debit_amt = abs(debit.get("amount", 0))
+                    debit_amt = abs(debit.get("amountGross", 0))
                     vat_mult = {11: 1.25, 12: 1.15, 13: 1.12}.get(vat_id, 1.0)
                     correct_gross = round(debit_amt * vat_mult, 2)
-                    old_credit = credit.get("amount", 0)
-                    credit["amount"] = -correct_gross
-                    if abs(old_credit) != correct_gross:
-                        print(f"  [{i}] AUTO-FIX: credit amount {old_credit} → {-correct_gross}")
-            # Auto-add credit posting if only 1 posting (debit only → "credit posting missing")
-            if len(postings) == 1:
-                debit = postings[0]
-                debit_amount = debit.get("amount", debit.get("amountGross", 0))
-                vat_id = debit.get("vatType", {}).get("id") if debit.get("vatType") else None
-                vat_mult = {11: 1.25, 12: 1.15, 13: 1.12}.get(vat_id, 1.25) if vat_id else 1.25
-                gross = round(abs(debit_amount) * vat_mult, 2)
-                # Find AP account (2400) from prior results
-                ap_id = None
-                for prev_r in results:
-                    if prev_r.get("status") == 200 and prev_r.get("data"):
-                        vals = prev_r["data"].get("values", []) if isinstance(prev_r["data"], dict) else []
-                        for v in vals:
-                            if v.get("number") == 2400:
-                                ap_id = v["id"]
-                                break
-                        if ap_id:
-                            break
-                if ap_id:
-                    postings.append({"account": {"id": ap_id}, "amount": -gross, "description": "Leverandørgjeld"})
-                    print(f"  [{i}] AUTO-FIX: added credit posting to AP {ap_id}, amount={-gross}")
+                    credit["amountGross"] = -correct_gross
+                    credit["amountGrossCurrency"] = -correct_gross
 
-        # Pre-fix: voucher posting rows must start at 1, and ensure amountGrossCurrency exists
+            # Inject the voucher as a NEW call after the current supplierInvoice
+            voucher_call = {
+                "method": "POST",
+                "path": "/ledger/voucher",
+                "body": {"date": voucher_date, "description": voucher_desc, "postings": postings},
+                "description": "Accounting entry for supplier invoice (auto-split)",
+            }
+            # Insert after current call in the plan
+            plan.insert(i + 1, voucher_call)
+            print(f"  [{i}] AUTO-FIX: stripped voucher from supplierInvoice, injected separate POST /ledger/voucher")
+
+        # Pre-fix: voucher posting — force sequential rows, convert amount→amountGross, ensure amountGrossCurrency
         if method == "POST" and "/ledger/voucher" in path and body:
             postings = body.get("postings", [])
             for idx, posting in enumerate(postings):
-                if posting.get("row", 0) == 0 or "row" not in posting:
-                    posting["row"] = idx + 1
+                posting["row"] = idx + 1  # Always force sequential 1-based rows
+                if "amount" in posting and "amountGross" not in posting:
+                    posting["amountGross"] = posting.pop("amount")  # Convert amount→amountGross
                 if "amountGross" in posting and "amountGrossCurrency" not in posting:
                     posting["amountGrossCurrency"] = posting["amountGross"]
+
+        # Pre-fix: salary/transaction — proactively link employment to division (virksomhet)
+        if method == "POST" and "/salary/transaction" in path and body:
+            try:
+                emp_id = None
+                for ps in body.get("payslips", []):
+                    emp_ref = ps.get("employee", {})
+                    emp_id = emp_ref.get("id")
+                    if emp_id:
+                        break
+                if emp_id:
+                    # Check if employment has division
+                    emp_r = requests.get(f"{base_url}/employee/employment?employeeId={emp_id}&count=1&fields=id,division", auth=auth, timeout=10)
+                    if emp_r.status_code == 200:
+                        emp_vals = emp_r.json().get("values", [])
+                        if emp_vals:
+                            employment = emp_vals[0]
+                            div = employment.get("division")
+                            if not div or not isinstance(div, dict) or not div.get("id"):
+                                # Need to link division — get company
+                                co_r = requests.get(f"{base_url}/company", auth=auth, timeout=10)
+                                if co_r.status_code == 200:
+                                    co_data = co_r.json()
+                                    # Company response may be single value or list
+                                    co_val = co_data.get("value", co_data)
+                                    if isinstance(co_val, dict):
+                                        co_id = co_val.get("id")
+                                        if co_id:
+                                            emp_id_val = employment.get("id")
+                                            put_r = requests.put(
+                                                f"{base_url}/employee/employment/{emp_id_val}",
+                                                auth=auth,
+                                                json={"id": emp_id_val, "employee": {"id": emp_id}, "division": {"id": co_id}},
+                                                timeout=15)
+                                            print(f"  [{i}] AUTO-FIX: linked employment {emp_id_val} to division/company {co_id} (status={put_r.status_code})")
+            except Exception as e:
+                print(f"  [{i}] AUTO-FIX: division linking failed: {e}")
 
         # Pre-fix: salary/transaction — replace hardcoded salary type IDs with real ones from prior GET
         if method == "POST" and "/salary/transaction" in path and body:
@@ -992,15 +1050,19 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                                 print(f"  [{i}] AUTO-FIX: second spec → Bonus type id={v['id']}")
                                 break
 
-        # Auto-fix: force row >= 1 on voucher postings (row 0 is system-reserved)
+        # Auto-fix: force sequential rows + amount→amountGross on voucher postings
         if method == "POST" and body:
             voucher = body.get("voucher", body) if "/supplierInvoice" in path else body
             postings = voucher.get("postings", []) if isinstance(voucher, dict) else []
-            if postings and "/voucher" in path or "/supplierInvoice" in path:
-                for p in postings:
-                    if isinstance(p, dict) and p.get("row") == 0:
-                        p["row"] = 1
-                        print(f"  [{i}] AUTO-FIX: row 0 → 1 on voucher posting")
+            if postings and ("/voucher" in path or "/supplierInvoice" in path):
+                for pidx, p in enumerate(postings):
+                    if isinstance(p, dict):
+                        p["row"] = pidx + 1  # Force sequential 1-based
+                        if "/ledger/voucher" in path:
+                            if "amount" in p and "amountGross" not in p:
+                                p["amountGross"] = p.pop("amount")
+                            if "amountGross" in p and "amountGrossCurrency" not in p:
+                                p["amountGrossCurrency"] = p["amountGross"]
 
         # Auto-strip banned fields from employment
         if method == "POST" and "/employee/employment" in path and body:
@@ -1221,6 +1283,33 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                                                     continue
                     except Exception as e:
                         print(f"    AUTO-FIX: virksomhet fix failed: {e}")
+
+                # Auto-fix: if timesheet fails with "kan ikke benyttes", create PROJECT_GENERAL_ACTIVITY and retry
+                if (resp.status_code == 422 and method == "POST"
+                        and "/timesheet/entry" in path
+                        and "kan ikke benyttes" in resp.text and body):
+                    act_name = "Prosjektarbeid"
+                    print(f"    AUTO-FIX: activity type wrong, creating PROJECT_GENERAL_ACTIVITY '{act_name}'")
+                    try:
+                        act_resp = requests.post(
+                            f"{base_url}/activity",
+                            auth=auth, json={"name": act_name, "activityType": "PROJECT_GENERAL_ACTIVITY"},
+                            timeout=15)
+                        if act_resp.status_code in (200, 201):
+                            act_data = act_resp.json()
+                            new_act_id = act_data.get("value", act_data).get("id")
+                            if new_act_id and body.get("activity"):
+                                body["activity"]["id"] = new_act_id
+                                retry_resp = requests.post(url, auth=auth, json=body, timeout=30)
+                                if retry_resp.status_code in (200, 201):
+                                    retry_data = retry_resp.json()
+                                    val = retry_data.get("value", retry_data)
+                                    rid = val.get("id") if isinstance(val, dict) else None
+                                    results.append({"status": retry_resp.status_code, "id": rid, "data": val})
+                                    print(f"    AUTO-FIX: timesheet succeeded with new activity id={new_act_id}")
+                                    continue
+                    except Exception as e:
+                        print(f"    AUTO-FIX: timesheet activity fix failed: {e}")
 
                 # Auto-fix: if supplier invoice returns 500, retry without department on postings
                 if resp.status_code == 500 and method == "POST" and "/supplierInvoice" in path and body:
