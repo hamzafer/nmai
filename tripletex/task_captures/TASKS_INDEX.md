@@ -1,8 +1,8 @@
 # Tripletex Task Index
 
-**Last updated:** 2026-03-21 19:01
+**Last updated:** 2026-03-21 19:06
 **Total unique task types seen:** 21 of 30
-**Total real submissions analyzed:** 52
+**Total real submissions analyzed:** 53
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -45,7 +45,7 @@
 
 | Task Type | Status | Best Result | Has Files | Attempts |
 |-----------|--------|-------------|-----------|----------|
-| CUSTOM_DIMENSION_VOUCHER | FAILED | 0/6 | No | 1 |
+| CUSTOM_DIMENSION_VOUCHER | FAILED | 0/6 | No | 2 |
 | RECEIPT_EXPENSE_PDF | FAILED | 0/10 | Yes (PDF) | 1 |
 
 ## Tier 3 (x3 multiplier)
@@ -88,6 +88,7 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 18:54 | 20260321_185400.md | TIME_TRACKING_PROJECT_INVOICE | 4/8 (50%) | Activity already exists (GET first), employment needs DOB, project invoice 404 |
 | 2026-03-21 18:57 | 20260321_185700.md | BANK_RECONCILIATION_CSV | 0/10 (0%) | CSV read but invoice lookup by number returned empty, all payments skipped |
 | 2026-03-21 19:01 | 20260321_190100.md | TRAVEL_EXPENSE | 4.5/8 (56%) | ALL 9 calls OK! Score low due to field values (rate/cost categories, dates) |
+| 2026-03-21 19:05 | 20260321_190500.md | CUSTOM_DIMENSION_VOUCHER | 0/13 (0%) | Repeat — same issues, no API for free dimensions, voucher postings fail |
 
 ---
 
