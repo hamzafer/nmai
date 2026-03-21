@@ -292,9 +292,10 @@ POST /ledger/voucher — Create a journal entry / voucher
   Required: postings (array) — NOT "voucherLines" (that field does NOT exist!)
   Each posting MUST have these fields:
     {"row": 1, "account": {"id": N}, "amountGross": N, "amountGrossCurrency": N, "description": "..."}
-  For customer-related postings (AR account 1500, exchange rate diffs, etc.):
-    Include "customer": {"id": N} in each posting that touches a customer account.
-    Omitting customer on AR postings causes "Kunde mangler" (customer missing) 422 error.
+  For customer-related postings (AR account 1500, exchange rate diffs, disagio/agio):
+    EVERY posting that touches account 1500 MUST include "customer": {"id": N}.
+    Example: {"row": 2, "account": {"id": AR_ID}, "amountGross": -N, "amountGrossCurrency": -N, "customer": {"id": CUST_ID}, "description": "..."}
+    Omitting customer causes "Kunde mangler" 422 — this is the #1 reason disagio vouchers fail.
   REQUIRED: "row" (integer, MUST start at 1, then 2, 3, ...). Row 0 is RESERVED for system postings — using row 0 causes instant 422.
   REQUIRED: "amountGross", "amountGrossCurrency", "account.id"
   AMOUNT SIGN: positive amountGross = DEBIT, negative = CREDIT. Postings MUST sum to zero.
@@ -629,7 +630,7 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                     body["physicalAddress"] = addr
 
         # Auto-strip fields that don't exist on these endpoints
-        if method == "POST" and body:
+        if method in ("POST", "PUT") and body:
             if "/employee/employment" in path:
                 for bad_field in ("employmentType", "jobCode"):
                     if bad_field in body:
