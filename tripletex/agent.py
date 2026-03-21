@@ -598,6 +598,11 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                     if bad_field in body:
                         print(f"  [{i}] AUTO-STRIP: removing invalid field '{bad_field}' from employee body")
                         body.pop(bad_field)
+            if "/project/orderline" in path:
+                for bad_field in ("isInvoiced",):
+                    if bad_field in body:
+                        print(f"  [{i}] AUTO-STRIP: removing invalid field '{bad_field}' from orderline body")
+                        body.pop(bad_field)
                 # Validate Norwegian NIN checksum — strip if invalid to avoid 422
                 nin = body.get("nationalIdentityNumber")
                 if nin and not _validate_norwegian_nin(nin):
