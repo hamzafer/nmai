@@ -308,16 +308,16 @@ POST /ledger/voucher — Create a journal entry / voucher
   Always search nearby: GET /ledger/account?numberFrom=X&numberTo=Y&count=10
   Example 1 (depreciation — debit expense 6010, credit asset 1230):
   {"date": "2025-12-31", "description": "Depreciation 2025", "postings": [
-    {"row": 0, "account": {"id": 123}, "amountGross": 50000, "amountGrossCurrency": 50000, "description": "Depreciation expense"},
-    {"row": 1, "account": {"id": 456}, "amountGross": -50000, "amountGrossCurrency": -50000, "description": "Accumulated depreciation"}
+    {"row": 1, "account": {"id": 123}, "amountGross": 50000, "amountGrossCurrency": 50000, "description": "Depreciation expense"},
+    {"row": 2, "account": {"id": 456}, "amountGross": -50000, "amountGrossCurrency": -50000, "description": "Accumulated depreciation"}
   ]}
 
   Example 2 (exchange rate loss/disagio — customer-related, requires customer ref):
   IMPORTANT: Use account 8160 for exchange rate LOSS (disagio), NOT 7960.
     8160 = Valutatap (disagio). 8060 = Valutagevinst (agio). 1500 = Kundefordringer (AR).
   {"date": "2025-07-01", "description": "Disagio", "postings": [
-    {"row": 0, "account": {"id": ACCT_8160_ID}, "amountGross": 2937.12, "amountGrossCurrency": 2937.12, "description": "Valutatap disagio", "customer": {"id": CUSTOMER_ID}},
-    {"row": 1, "account": {"id": 999}, "amountGross": -2937.12, "amountGrossCurrency": -2937.12, "description": "Kundefordringer", "customer": {"id": CUSTOMER_ID}}
+    {"row": 1, "account": {"id": ACCT_8160_ID}, "amountGross": 2937.12, "amountGrossCurrency": 2937.12, "description": "Valutatap disagio", "customer": {"id": CUSTOMER_ID}},
+    {"row": 2, "account": {"id": ACCT_1500_ID}, "amountGross": -2937.12, "amountGrossCurrency": -2937.12, "description": "Kundefordringer", "customer": {"id": CUSTOMER_ID}}
   ]}
   REMINDER: "amount" DOES NOT WORK — you MUST use "amountGross" and "amountGrossCurrency" on every posting.
 
@@ -674,6 +674,42 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                         existing_id = vals[0]["id"]
                         print(f"  [{i}] POST {path} — {desc}")
                         print(f"    AUTO-LOOKUP: employee email={email} exists, id={existing_id}")
+                        results.append({"status": 200, "id": existing_id, "data": vals[0]})
+                        continue
+            except Exception:
+                pass  # Fall through to normal POST
+
+        # Auto-lookup: if POST /customer, check if org number already exists first
+        if method == "POST" and path.strip("/") == "customer" and body and body.get("organizationNumber"):
+            org_num = body["organizationNumber"]
+            lookup_url = f"{base_url}/customer?organizationNumber={org_num}&count=5"
+            try:
+                lookup_resp = requests.get(lookup_url, auth=auth, timeout=15)
+                if lookup_resp.status_code == 200:
+                    lookup_data = lookup_resp.json()
+                    vals = lookup_data.get("values", [])
+                    if vals and vals[0].get("id"):
+                        existing_id = vals[0]["id"]
+                        print(f"  [{i}] POST {path} — {desc}")
+                        print(f"    AUTO-LOOKUP: customer org={org_num} exists, id={existing_id}")
+                        results.append({"status": 200, "id": existing_id, "data": vals[0]})
+                        continue
+            except Exception:
+                pass  # Fall through to normal POST
+
+        # Auto-lookup: if POST /supplier, check if org number already exists first
+        if method == "POST" and path.strip("/") == "supplier" and body and body.get("organizationNumber"):
+            org_num = body["organizationNumber"]
+            lookup_url = f"{base_url}/supplier?organizationNumber={org_num}&count=5"
+            try:
+                lookup_resp = requests.get(lookup_url, auth=auth, timeout=15)
+                if lookup_resp.status_code == 200:
+                    lookup_data = lookup_resp.json()
+                    vals = lookup_data.get("values", [])
+                    if vals and vals[0].get("id"):
+                        existing_id = vals[0]["id"]
+                        print(f"  [{i}] POST {path} — {desc}")
+                        print(f"    AUTO-LOOKUP: supplier org={org_num} exists, id={existing_id}")
                         results.append({"status": 200, "id": existing_id, "data": vals[0]})
                         continue
             except Exception:
