@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 21:10
 **Total unique task types seen:** 26 of 30
-**Total real submissions analyzed:** 66
+**Total real submissions analyzed:** 68
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -108,6 +108,8 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 21:35 | 20260321_213500.md | PROJECT_FIXED_PRICE | 2/8 (25%) | Norwegian. Fixed price + 25% partial invoice. 422 on invoice creation |
 | 2026-03-21 21:39 | 20260321_213900.md | PAYROLL | 2/10 (20%) | Nynorsk. Base salary + one-time bonus. 422 on salary spec, 405 on fix attempt |
 | 2026-03-21 20:41 | 20260321_204100.md | PAYROLL | 0/8 (0%) | Nynorsk. Bonus variant. Employment 422, salary 422, fix 405 |
+| 2026-03-21 20:43 | 20260321_204400.md | BANK_RECONCILIATION_CSV | 0/10 (0%) | German. 14/19 OK but reconciliation matching wrong. Still 0% |
+| 2026-03-21 20:46 | 20260321_204600.md | CUSTOMER_CREATE | 5/8 (63%) | Norwegian. 1 call, 0 errors, 7.4s. Missing address fields cost points |
 
 ---
 
