@@ -184,11 +184,14 @@ POST /activity — Create activity (ONLY if GET found nothing!)
 POST /project/{projectId}/projectActivity — Link an activity to a project
   Required: activity ({"id": N})
   NOTE: The projectId goes in the URL path, not the body.
+  WARNING: This endpoint often returns 404 through the proxy. If it fails, SKIP IT — timesheet entries
+  work without projectActivity linking (just reference project and activity directly).
 
 POST /timesheet/entry — Log hours
   Required: employee ({"id": N}), project ({"id": N}), activity ({"id": N}), date (YYYY-MM-DD), hours (number), chargeableHours (number, can be 0)
-  Optional: comment
+  Optional: comment, hourlyRate (number)
   NOTE: chargeableHours is REQUIRED — set to same as hours, or 0 if not billable.
+  NOTE: This works even if projectActivity linking failed — just reference the activity ID directly.
 
 PUT /project/{id}/:createInvoice — Generate invoice from project hours
   Pass invoiceDate as query param: PUT /project/123/:createInvoice?invoiceDate=2026-01-15
@@ -282,6 +285,16 @@ Example: after creating a customer in call 0, reference it as {"id": "{result_0_
 
 The "depends_on" field (0-indexed integer) indicates which previous call's response ID to use for {prev_id} substitution.
 
+CRITICAL — FIND EXISTING vs CREATE NEW:
+When the task says an entity ALREADY EXISTS ("has an invoice", "har en faktura", "tiene una factura",
+"has an unpaid invoice", "outstanding invoice", "uteståande faktura", "offene Rechnung", "facture impayée"):
+  → SEARCH for it first! Do NOT create new entities from scratch.
+  → GET /customer?organizationNumber=X to find existing customer
+  → GET /invoice?customerId=X&invoiceDateFrom=2020-01-01&invoiceDateTo=2026-12-31 to find their invoices
+  → GET /supplierInvoice?supplierId=X to find supplier invoices
+  → Then act on the FOUND entity (register payment, reverse, credit note, etc.)
+  Creating new entities when the task expects existing ones will FAIL scoring.
+
 COMMON PATTERNS:
 
 Pattern 1 — Create employee with start date (requires department first):
@@ -363,6 +376,18 @@ NOTE: vatType {"id": 11} = 25% input VAT. Use directly — NEVER GET /ledger/vat
 NOTE: Debit expense NET amountGross WITH vatType. Credit AP GROSS amountGross (negative, NO vatType).
 NOTE: Use numberFrom/numberTo for account lookup — exact number queries may return 422.
 
+Pattern 9 — Find existing unpaid invoice and register payment:
+```json
+[
+  {"method": "GET", "path": "/customer?organizationNumber=893135979&count=1", "body": null, "description": "Find existing customer by org number"},
+  {"method": "GET", "path": "/invoice?customerId={result_0_id}&invoiceDateFrom=2020-01-01&invoiceDateTo=2026-12-31&count=100", "body": null, "description": "Find unpaid invoices for this customer"},
+  {"method": "PUT", "path": "/invoice/{result_1_id}/:createPayment?paymentDate=2026-03-21&paymentTypeId=1&paidAmount=AMOUNT&paidAmountCurrency=AMOUNT", "body": {}, "description": "Register full payment on found invoice", "depends_on": 1}
+]
+```
+USE THIS PATTERN when the task says "has an invoice", "has an unpaid invoice", "find the overdue invoice", etc.
+Do NOT create a new customer/invoice — search for the EXISTING ones first.
+The paidAmount must match the invoice's total amount (including VAT). Use the amount from the GET response.
+
 Pattern 7 — Run payroll (salary + optional bonus):
 ```json
 [
@@ -386,9 +411,12 @@ IMPORTANT NOTES:
 
 Think step by step about:
 1. What entity needs to be created/modified?
-2. What prerequisites need to be created first? (sandbox starts empty!)
-3. What's the correct order of API calls?
-4. What are the REQUIRED fields for each endpoint?
+2. Does the task reference EXISTING entities ("has an invoice", "has an unpaid invoice", "find the overdue invoice")?
+   If yes: SEARCH FIRST with GET before creating anything. Use GET /customer?organizationNumber=X, GET /invoice?customerId=X, etc.
+   The sandbox often has PRE-EXISTING customers, invoices, employees — do NOT blindly create new ones.
+3. What prerequisites need to be created first? (only if the task says to CREATE them)
+4. What's the correct order of API calls?
+5. What are the REQUIRED fields for each endpoint?
 
 CRITICAL: If the task asks you to ANALYZE data and THEN CREATE entities based on results,
 you MUST include BOTH the analysis GETs AND the creation POSTs in your plan.
@@ -1126,6 +1154,8 @@ Common issues:
 - If voucher returns "uten posteringer" (without postings): you used "amount" — MUST use "amountGross" and "amountGrossCurrency".
   Each posting: {{"row": N, "account": {{"id": X}}, "amountGross": AMT, "amountGrossCurrency": AMT, "description": "..."}}
 - If voucher returns "Kunde mangler" (customer missing): add "customer": {{"id": CUSTOMER_ID}} to each posting on AR accounts (1500).
+- If POST /project/ID/projectActivity returns 404: SKIP IT. Timesheet entries work without it —
+  just reference the activity ID directly in POST /timesheet/entry.
 
 Provide a COMPLETE corrected JSON array of ONLY the calls that still need to succeed.
 DO NOT repeat calls that already returned 200/201 — those entities exist and their IDs are in the results above.
