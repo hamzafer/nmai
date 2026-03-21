@@ -390,6 +390,13 @@ Think step by step about:
 3. What's the correct order of API calls?
 4. What are the REQUIRED fields for each endpoint?
 
+CRITICAL: If the task asks you to ANALYZE data and THEN CREATE entities based on results,
+you MUST include BOTH the analysis GETs AND the creation POSTs in your plan.
+Example: "Analyze ledger and create projects for top 3 expense accounts" requires:
+  - GET /ledger/posting to read data
+  - POST /project × 3 to create entities based on what you found
+Do NOT stop after the analysis — you MUST act on the results!
+
 Be precise and minimal — fewer API calls = better score. Every 4xx error reduces your efficiency bonus.
 """
 
