@@ -91,7 +91,12 @@ def main():
 
     while True:
         now = datetime.now().strftime("%H:%M:%S")
-        active_rounds, status = check_rounds(session)
+        try:
+            active_rounds, status = check_rounds(session)
+        except Exception as e:
+            print(f"[{now}] Connection error: {e.__class__.__name__}, retrying in {args.interval}s...")
+            time.sleep(args.interval)
+            continue
 
         if status != "ok":
             print(f"[{now}] API error, retrying...")
@@ -100,20 +105,23 @@ def main():
 
             # Try to analyze completed rounds
             if not args.once:
-                resp = session.get(f"{BASE}/astar-island/my-rounds").json()
-                completed = [r for r in resp
-                             if r.get("status") == "completed"
-                             and r.get("round_number") not in analyzed_rounds
-                             and r.get("seeds_submitted", 0) > 0]
-                for r in completed:
-                    rn = r.get("round_number", 0)
-                    print(f"[{now}] Round {rn} completed — running analyzer...")
-                    result = run_analyzer()
-                    if result.returncode == 0:
-                        print(result.stdout[-500:] if len(result.stdout) > 500 else result.stdout)
-                    else:
-                        print(f"  Analyzer error: {result.stderr[:200]}")
-                    analyzed_rounds.add(rn)
+                try:
+                    resp = session.get(f"{BASE}/astar-island/my-rounds").json()
+                    completed = [r for r in resp
+                                 if r.get("status") == "completed"
+                                 and r.get("round_number") not in analyzed_rounds
+                                 and r.get("seeds_submitted", 0) > 0]
+                    for r in completed:
+                        rn = r.get("round_number", 0)
+                        print(f"[{now}] Round {rn} completed — running analyzer...")
+                        result = run_analyzer()
+                        if result.returncode == 0:
+                            print(result.stdout[-500:] if len(result.stdout) > 500 else result.stdout)
+                        else:
+                            print(f"  Analyzer error: {result.stderr[:200]}")
+                        analyzed_rounds.add(rn)
+                except Exception as e:
+                    print(f"[{now}] Error checking completed rounds: {e.__class__.__name__}")
         else:
             for r in active_rounds:
                 rn = r.get("round_number", 0)
