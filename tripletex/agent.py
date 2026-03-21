@@ -150,6 +150,11 @@ PUT /order/{id}/:invoice — Convert order to invoice
   To also send: add &sendToCustomer=true to the query string.
   Alternative if /:invoice gives 404: PUT /order/invoice/{id}?invoiceDate=...&invoiceDueDate=...
 
+PUT /invoice/{id}/:createCreditNote — Issue a credit note for an invoice
+  Pass date as query param: PUT /invoice/123/:createCreditNote?date=2026-03-21
+  IMPORTANT: The credit note date MUST be >= the original invoice date. Using an earlier date causes 422.
+  Use today's date (2026-03-21) if not specified in the task.
+
 PUT /invoice/{id}/:send — Send an existing invoice
   Pass sendType as query param: PUT /invoice/123/:send?sendType=EMAIL
   Use this AFTER creating an invoice if the task says to "send" it.
@@ -224,9 +229,9 @@ PUT /project/{id}/:createInvoice — BROKEN (always returns 404 through the prox
 
 POST /project/orderline — Set fixed price on a project
   Required: project ({"id": N}), date (YYYY-MM-DD)
-  Optional: product ({"id": N}), description, count, unitPriceExcludingVatCurrency, amountExcludingVatCurrency, amountGross
-  Use this to set the fixed price amount on a project.
-  IMPORTANT: amountGross is REQUIRED for the orderline to be billable. Without it you get "Ordrelinjen er ikke fakturerbar".
+  Use: amount, unitPriceExcludingVatCurrency, or amountExcludingVatCurrency for the price.
+  Do NOT use "amountGross" — it does not exist on this endpoint (causes 422).
+  Example: {"project": {"id": N}, "date": "2026-03-21", "amount": 430750, "description": "Fixed price"}
   BANNED: "isInvoiced" does NOT exist — Tripletex returns 422 if included.
 
 POST /travelExpense — Create travel expense report
@@ -297,6 +302,9 @@ POST /ledger/voucher — Create a journal entry / voucher
   NOTE: Use account IDs from GET /ledger/account, not account numbers directly.
   IMPORTANT: If an account number returns empty (id=None), it doesn't exist in the sandbox.
   Common fallbacks: 1209→credit the asset account directly (1230/1250/1210), 8700→use 8300, 2920→try 2500.
+  COMMON ACCOUNTS: 8160 = Valutatap/disagio (exchange rate loss), 8060 = Valutagevinst/agio (exchange rate gain),
+    1500 = Kundefordringer (accounts receivable), 2400 = Leverandørgjeld (accounts payable).
+  For currency/exchange rate tasks: ALWAYS use 8160 for loss (disagio) and 8060 for gain (agio). NOT 7960.
   Always search nearby: GET /ledger/account?numberFrom=X&numberTo=Y&count=10
   Example 1 (depreciation — debit expense 6010, credit asset 1230):
   {"date": "2025-12-31", "description": "Depreciation 2025", "postings": [
@@ -305,8 +313,10 @@ POST /ledger/voucher — Create a journal entry / voucher
   ]}
 
   Example 2 (exchange rate loss/disagio — customer-related, requires customer ref):
+  IMPORTANT: Use account 8160 for exchange rate LOSS (disagio), NOT 7960.
+    8160 = Valutatap (disagio). 8060 = Valutagevinst (agio). 1500 = Kundefordringer (AR).
   {"date": "2025-07-01", "description": "Disagio", "postings": [
-    {"row": 0, "account": {"id": 888}, "amountGross": 2937.12, "amountGrossCurrency": 2937.12, "description": "Valutatap", "customer": {"id": CUSTOMER_ID}},
+    {"row": 0, "account": {"id": ACCT_8160_ID}, "amountGross": 2937.12, "amountGrossCurrency": 2937.12, "description": "Valutatap disagio", "customer": {"id": CUSTOMER_ID}},
     {"row": 1, "account": {"id": 999}, "amountGross": -2937.12, "amountGrossCurrency": -2937.12, "description": "Kundefordringer", "customer": {"id": CUSTOMER_ID}}
   ]}
   REMINDER: "amount" DOES NOT WORK — you MUST use "amountGross" and "amountGrossCurrency" on every posting.
@@ -1275,7 +1285,7 @@ Common issues:
   just reference the activity ID directly in POST /timesheet/entry.
 - If PUT /project/ID/:createInvoice returns 404: This endpoint is BROKEN. Instead, create an order
   with orderLines for the project hours/services, then PUT /order/ID/:invoice to generate the invoice.
-- If POST /project/orderline returns "Ordrelinjen er ikke fakturerbar": add amountGross field to the body.
+- If POST /project/orderline fails: use "amount" or "unitPriceExcludingVatCurrency" — NOT "amountGross" (doesn't exist).
 
 Provide a COMPLETE corrected JSON array of ONLY the calls that still need to succeed.
 DO NOT repeat calls that already returned 200/201 — those entities exist and their IDs are in the results above.
