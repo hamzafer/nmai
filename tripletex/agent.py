@@ -79,6 +79,8 @@ POST /product — Create a product (only if GET finds nothing)
   Optional: costExcludingVatCurrency, priceExcludingVatCurrency, vatType ({"id": N})
   IMPORTANT: Do NOT include the "number" field — product names AND numbers often already exist.
   NOTE: vatType.id must be an integer. Common: id=3 for 25% MVA (outgoing). If unsure, omit vatType.
+  CRITICAL: When GET /product finds a product, use THAT call's {result_N_id} for the order.
+  Do NOT also POST /product — it WILL fail because the product already exists.
 
   STRATEGY for products: If the task specifies product numbers, use GET /product?number=NNNN to find them.
   Use the IDs from the GET responses directly in the order. Do NOT also POST — it will fail.
@@ -109,6 +111,12 @@ PUT /order/{id}/:invoice — Convert order to invoice
 PUT /invoice/{id}/:send — Send an existing invoice
   Pass sendType as query param: PUT /invoice/123/:send?sendType=EMAIL
   Use this AFTER creating an invoice if the task says to "send" it.
+
+GET /invoice — Search for invoices
+  IMPORTANT: Date range params are REQUIRED. Without them you get 422.
+  Params: invoiceDateFrom, invoiceDateTo, invoiceDueDateFrom, invoiceDueDateTo (YYYY-MM-DD)
+  To find overdue invoices: GET /invoice?invoiceDateFrom=2020-01-01&invoiceDateTo=TODAY&invoiceDueDateTo=YESTERDAY
+  Also: customerId, invoiceNumber, isPaid (boolean)
 
 POST /invoice — Create an invoice directly
   Required: invoiceDate (YYYY-MM-DD), invoiceDueDate (YYYY-MM-DD), orders (array of {"id": N})
@@ -146,22 +154,55 @@ PUT /project/{id}/:createInvoice — Generate invoice from project hours
   Pass invoiceDate as query param: PUT /project/123/:createInvoice?invoiceDate=2026-01-15
 
 GET/POST/PUT/DELETE /travelExpense — Travel expense reports
-  Required for POST: employee ({"id": N}), title, startDate, endDate
+  Required for POST: employee ({"id": N}), title (string), startDate (YYYY-MM-DD), endDate (YYYY-MM-DD)
+
+POST /travelExpense/perDiemCompensation — Add daily allowance to travel expense
+  Required: travelExpense ({"id": N}), rateCategory ({"id": 1}), countDays (int)
+  Optional: rateAmount, amount, isDeductionForBreakfast
+
+POST /travelExpense/cost — Add individual expense to travel report
+  Required: travelExpense ({"id": N}), description (string), amount (number), date (YYYY-MM-DD)
 
 GET /salary/type — List salary types (needed for payroll)
-  Returns list of salary types with IDs. Use these IDs in payslip specifications.
+  Returns list of salary types with IDs. Look for "Fastlønn" (fixed salary), "Bonus", etc.
 
 POST /salary/payslip — Create/run payroll for an employee
-  Body includes employee reference, date, year, month, and payslipSpecifications array.
-  Each specification needs: salaryType ({"id": N}), rate, count, amount.
+  Required: employee ({"id": N}), date (YYYY-MM-DD), year (int), month (int)
+  Required: specifications (array) — NOT "payslipSpecifications"!
+  Each specification: {"salaryType": {"id": N}, "rate": N, "count": 1, "amount": N}
+  IMPORTANT: Field is "specifications" not "payslipSpecifications".
   First GET /salary/type to find valid salary type IDs.
+
+POST /employee/employment — Employment record
+  Required: employee ({"id": N}), startDate (YYYY-MM-DD)
+  Optional: endDate, percentOfFullTimeEquivalent
+  Do NOT include "employmentType" — that field does NOT exist on this endpoint!
+  Do NOT include "nationalIdentityNumber" on /employee if format is uncertain — it has strict validation (11-digit Norwegian personnummer with checksum). Omit it rather than risk a 422.
 
 GET /salary/payslip — Query existing payslips
 
 GET /ledger/account — Query chart of accounts
+  Search by number: GET /ledger/account?number=6010
+  NOTE: Account number ≠ account ID. You MUST query to get the ID.
+  If a number returns empty values, try nearby numbers (e.g., 1200, 1210, 6000, 6010).
 GET /ledger/posting — Query ledger postings
-GET/POST/DELETE /ledger/voucher — Manage vouchers
-GET /ledger/paymentTypeCategory — List payment type categories (try this for finding paymentTypeId)
+GET /ledger/paymentType — List payment types (for paymentTypeId in payment registration)
+
+POST /ledger/voucher — Create a journal entry / voucher
+  Required: date (YYYY-MM-DD), description (string)
+  Required: postings (array) — NOT "voucherLines" (that field does NOT exist!)
+  Each posting: {"account": {"id": N}, "amount": N, "description": "..."}
+  AMOUNT SIGN: positive = DEBIT, negative = CREDIT. Postings MUST sum to zero.
+  Do NOT use "debitAmount"/"creditAmount" — those fields do NOT exist! Use "amount" only.
+  NOTE: Use account IDs from GET /ledger/account, not account numbers directly.
+  IMPORTANT: If an account number returns empty (id=None), it doesn't exist in the sandbox.
+  Common fallbacks: 1209→credit the asset account directly (1230/1250/1210), 8700→use 8300, 2920→try 2500.
+  Always search nearby: GET /ledger/account?numberFrom=X&numberTo=Y&count=10
+  Example (depreciation — debit expense 6010, credit asset 1230):
+  {"date": "2025-12-31", "description": "Depreciation 2025", "postings": [
+    {"account": {"id": 123}, "amount": 50000, "description": "Depreciation expense"},
+    {"account": {"id": 456}, "amount": -50000, "description": "Accumulated depreciation"}
+  ]}
 
 REFERENCING PREVIOUS RESULTS:
 Use "{result_N_id}" to reference the ID from the Nth call's response (0-indexed).
@@ -251,23 +292,49 @@ Be precise and minimal — fewer API calls = better score. Every 4xx error reduc
 """
 
 
-def extract_file_content(files: list) -> str:
-    """Extract text description of attached files."""
+def extract_file_content(files: list) -> tuple:
+    """Extract text from files and collect image blocks for vision.
+
+    Returns:
+        tuple of (text_descriptions: str, image_blocks: list)
+    """
     if not files:
-        return ""
+        return "", []
 
     descriptions = []
+    image_blocks = []
     for f in files:
         filename = f.get("filename", "unknown")
         mime = f.get("mime_type", "")
         data = base64.b64decode(f.get("content_base64", ""))
 
         if "pdf" in mime:
-            descriptions.append(f"[PDF file: {filename}, {len(data)} bytes]")
-            # For PDFs, we'd need a PDF parser — for now describe it
-            # The LLM can work with the filename context
+            try:
+                import fitz
+                doc = fitz.open(stream=data, filetype="pdf")
+                text_parts = [page.get_text() for page in doc]
+                doc.close()
+                full_text = "\n".join(text_parts).strip()
+                if full_text:
+                    descriptions.append(f"PDF file {filename} contents:\n{full_text[:5000]}")
+                else:
+                    descriptions.append(f"[PDF file: {filename}, no extractable text]")
+            except Exception as e:
+                descriptions.append(f"[PDF file: {filename}, extraction error: {e}]")
         elif "image" in mime:
-            descriptions.append(f"[Image file: {filename}, {len(data)} bytes]")
+            media_type = "image/png" if "png" in mime else "image/jpeg"
+            image_blocks.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": media_type,
+                    "data": f.get("content_base64", ""),
+                },
+            })
+            image_blocks.append({
+                "type": "text",
+                "text": f"Image above is from file: {filename}",
+            })
         else:
             try:
                 text = data.decode("utf-8")
@@ -275,7 +342,7 @@ def extract_file_content(files: list) -> str:
             except UnicodeDecodeError:
                 descriptions.append(f"[Binary file: {filename}, {len(data)} bytes]")
 
-    return "\n\n".join(descriptions)
+    return "\n\n".join(descriptions), image_blocks
 
 
 def execute_api_calls(plan: list, base_url: str, token: str) -> list:
@@ -339,6 +406,33 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
             results.append({"error": f"Unresolved references: {unresolved}", "id": None})
             continue
 
+        # Skip calls with null ID references (cascaded from failed lookups)
+        if body:
+            body_check = json.dumps(body)
+            if '"id": null' in body_check or '"id": None' in body_check:
+                print(f"  [{i}] {method} {path} — {desc}")
+                print(f"    SKIP: body contains null id reference")
+                results.append({"error": "Null ID reference in body", "id": None})
+                continue
+
+        # Auto-lookup: if POST /employee, check if email already exists first
+        if method == "POST" and path.strip("/") == "employee" and body and body.get("email"):
+            email = body["email"]
+            lookup_url = f"{base_url}/employee?email={email}&fields=id,firstName,lastName,email"
+            try:
+                lookup_resp = requests.get(lookup_url, auth=auth, timeout=15)
+                if lookup_resp.status_code == 200:
+                    lookup_data = lookup_resp.json()
+                    vals = lookup_data.get("values", [])
+                    if vals and vals[0].get("id"):
+                        existing_id = vals[0]["id"]
+                        print(f"  [{i}] POST {path} — {desc}")
+                        print(f"    AUTO-LOOKUP: employee email={email} exists, id={existing_id}")
+                        results.append({"status": 200, "id": existing_id, "data": vals[0]})
+                        continue
+            except Exception:
+                pass  # Fall through to normal POST
+
         url = f"{base_url}{path}"
         print(f"  [{i}] {method} {path} — {desc}")
 
@@ -373,6 +467,30 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                 else:
                     value = data
                     result_id = data.get("id") if isinstance(data, dict) else None
+                # Auto-fallback: if GET /ledger/account returned empty, search nearby range
+                if (result_id is None and method == "GET"
+                        and "/ledger/account" in path and "number=" in path
+                        and "numberFrom" not in path):
+                    import urllib.parse
+                    parsed_qs = urllib.parse.parse_qs(urllib.parse.urlparse(path).query)
+                    acct_num = parsed_qs.get("number", [None])[0]
+                    if acct_num and acct_num.isdigit():
+                        acct_int = int(acct_num)
+                        range_from = (acct_int // 10) * 10
+                        range_to = range_from + 19
+                        fallback_url = f"{base_url}/ledger/account?numberFrom={range_from}&numberTo={range_to}&count=10"
+                        try:
+                            fb_resp = requests.get(fallback_url, auth=auth, timeout=15)
+                            if fb_resp.status_code == 200:
+                                fb_data = fb_resp.json()
+                                fb_vals = fb_data.get("values", [])
+                                if fb_vals:
+                                    result_id = fb_vals[0]["id"]
+                                    value = fb_data
+                                    print(f"    FALLBACK: account {acct_num} empty, found {len(fb_vals)} in range {range_from}-{range_to}, using id={result_id}")
+                        except Exception:
+                            pass
+
                 results.append({"status": resp.status_code, "id": result_id, "data": value})
                 print(f"    OK ({resp.status_code}), id={result_id}")
             else:
@@ -568,18 +686,24 @@ def solve_task(prompt: str, files: list, base_url: str, session_token: str) -> d
     print(f"  Prompt: {prompt[:200]}...")
 
     # Build the full prompt for the LLM
-    file_context = extract_file_content(files)
-    full_prompt = f"Task prompt:\n{prompt}"
-    if file_context:
-        full_prompt += f"\n\nAttached files:\n{file_context}"
+    file_text, image_blocks = extract_file_content(files)
+    text_prompt = f"Task prompt:\n{prompt}"
+    if file_text:
+        text_prompt += f"\n\nAttached files:\n{file_text}"
 
-    full_prompt += f"""
+    text_prompt += f"""
 
 Base URL: {base_url}
 Authentication: Basic Auth with username "0" and the session token.
 
 Analyze this task and provide the JSON array of API calls needed to complete it.
 Remember: be precise and minimal. Each unnecessary call or error hurts the score."""
+
+    # Build content: text + optional images for multimodal
+    if image_blocks:
+        full_prompt = image_blocks + [{"type": "text", "text": text_prompt}]
+    else:
+        full_prompt = text_prompt
 
     # Get LLM plan
     print("  Calling Claude Opus for task plan...")
@@ -678,10 +802,24 @@ Common issues:
 
 Provide a COMPLETE corrected JSON array of ONLY the calls that still need to succeed.
 DO NOT repeat calls that already returned 200/201 — those entities exist and their IDs are in the results above.
-Return [] if the task is already complete."""
+Return [] if the task is already complete.
+
+CRITICAL RULES FOR FIX ROUND:
+1. You MUST include the actual POST/PUT calls that failed — not just GET calls to explore.
+2. HARDCODE all known IDs as integers (e.g., "customer": {{"id": 108249547}}).
+   For IDs from previous rounds, copy the actual integer from the results above.
+   You MAY use "depends_on" and {{prev_id}} ONLY for NEW entities created in THIS fix round
+   (e.g., if you create an order in this fix round, use depends_on to reference it for the invoice call).
+3. For voucher/journal entries: field is "postings" NOT "voucherLines".
+   Each posting: {{"account": {{"id": N}}, "amount": N, "description": "..."}}
+   Positive amount = DEBIT, negative = CREDIT. Do NOT use debitAmount/creditAmount.
+4. If account lookup returned empty (id=None), search nearby: GET /ledger/account?numberFrom=X&numberTo=Y&count=10.
+   Common: 1209 doesn't exist → credit asset directly (1230/1250/1210). 8700→use 8300. 2920→try 2500.
+5. You must COMPLETE the entire remaining task chain — if order creation succeeds, you MUST also include the invoice conversion and any payment calls after it.
+6. Do NOT just explore — you must actually COMPLETE the task."""
 
         print(f"  Asking LLM to fix (round {round_num + 2})...")
-        fix_response = call_claude(fix_prompt, system=SYSTEM_PROMPT)
+        fix_response = call_claude(fix_prompt, system=SYSTEM_PROMPT, max_tokens=8192)
         fix_plan = parse_llm_plan(fix_response)
         log.add_llm_call(f"fix_{round_num + 1}", fix_prompt, fix_response)
 
