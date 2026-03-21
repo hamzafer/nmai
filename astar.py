@@ -35,7 +35,7 @@ TERRAIN_TO_CLASS = {
 # Static terrain types that won't change
 STATIC_CLASSES = {0, 4, 5}  # Empty/Ocean/Plains, Forest, Mountain
 
-DYNAMIC_RADIUS = 2  # cells around settlements considered dynamic (was 7, caused 99% coverage)
+DYNAMIC_RADIUS = 7  # cells around settlements considered dynamic
 
 DATA_DIR = Path(__file__).parent / "data"
 MODELS_DIR = Path(__file__).parent / "models"
@@ -367,7 +367,7 @@ def count_settlement_neighbors(initial_grid, x, y, width, height):
 
 
 def build_prediction_bayesian(width, height, initial_grid, observations,
-                               transition_priors, concentration=0.5,
+                               transition_priors, concentration=8.0,
                                cumulative_priors=None, neighborhood_model=None):
     """
     Build H x W x 6 probability tensor using Bayesian estimation.
@@ -439,9 +439,7 @@ def play_round(session: requests.Session, round_id: str, detail: dict, round_num
     print(f"Queries available: {queries_left}")
 
     # ── Load cumulative priors from past rounds ──
-    # Disabled: cumulative model averages across rounds with very different dynamics,
-    # producing useless priors. Use per-round observations only.
-    cumulative_priors, neighborhood_model = None, None
+    cumulative_priors, neighborhood_model = load_cumulative_priors()
 
     # ── Phase 0: Analyze all seeds ──
     print("\n=== Phase 0: Analyzing initial states ===")
