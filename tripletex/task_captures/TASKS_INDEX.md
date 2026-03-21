@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-03-21 21:10
 **Total unique task types seen:** 26 of 30
-**Total real submissions analyzed:** 74
+**Total real submissions analyzed:** 75
 
 ## Status Legend
 - PERFECT = all API calls succeeded (0 errors)
@@ -115,6 +115,7 @@ Possible unseen types based on Tripletex API capabilities:
 | 2026-03-21 20:56 | 20260321_205600.md | PAYMENT_REVERSAL | 6/8 (75%) | Norwegian. Correctly found existing entities. Negative payment failed. Same 75% |
 | 2026-03-21 21:00 | 20260321_210000.md | PRODUCT_CREATE | 7/7 (100%) | PERFECT! Portuguese. 2 calls, 0 errors, 13.77s |
 | 2026-03-21 21:02 | 20260321_210200.md | CUSTOM_DIMENSION_VOUCHER | 0/13 (0%) | Nynorsk. Used /ledger/closeGroup — wrong endpoint. 4th attempt, still 0% |
+| 2026-03-21 21:04 | 20260321_210400.md | CURRENCY_EXCHANGE_PAYMENT | 2/10 (20%) | Spanish. Found existing entities. Wrong disagio account (7960 vs 8160). Voucher failed |
 
 ---
 
