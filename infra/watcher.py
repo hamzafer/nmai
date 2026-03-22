@@ -17,7 +17,7 @@ BASE = "https://api.ainm.no"
 
 def get_session():
     import requests
-    env_path = Path(__file__).parent / ".env"
+    env_path = Path(__file__).parent.parent / ".env"
     token = None
     if env_path.exists():
         for line in env_path.read_text().splitlines():
@@ -52,7 +52,7 @@ def check_budget(session):
 
 def run_bot():
     """Run astar.py to play the active round."""
-    script = Path(__file__).parent / "astar.py"
+    script = Path(__file__).parent.parent / "astar" / "player.py"
     result = subprocess.run(
         [sys.executable, str(script)],
         capture_output=True, text=True, timeout=600
@@ -62,7 +62,7 @@ def run_bot():
 
 def run_analyzer():
     """Run analyze.py to pull ground truth for completed rounds."""
-    script = Path(__file__).parent / "analyze.py"
+    script = Path(__file__).parent.parent / "astar" / "analyzer.py"
     result = subprocess.run(
         [sys.executable, str(script), "--all"],
         capture_output=True, text=True, timeout=120

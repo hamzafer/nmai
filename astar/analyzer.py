@@ -10,8 +10,8 @@ import numpy as np
 from pathlib import Path
 
 BASE = "https://api.ainm.no"
-DATA_DIR = Path(__file__).parent / "data"
-MODELS_DIR = Path(__file__).parent / "models"
+DATA_DIR = Path(__file__).parent.parent / "data"
+MODELS_DIR = Path(__file__).parent.parent / "models"
 
 NUM_CLASSES = 6
 CLASSES = ["Empty", "Settlement", "Port", "Ruin", "Forest", "Mountain"]
@@ -28,7 +28,7 @@ TERRAIN_TO_CLASS = {
 
 def get_session():
     import requests
-    env_path = Path(__file__).parent / ".env"
+    env_path = Path(__file__).parent.parent / ".env"
     token = None
     if env_path.exists():
         for line in env_path.read_text().splitlines():

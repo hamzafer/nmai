@@ -17,8 +17,8 @@ import json
 from pathlib import Path
 from collections import defaultdict
 
-DATA_DIR = Path(__file__).parent / "data"
-MODELS_DIR = Path(__file__).parent / "models"
+DATA_DIR = Path(__file__).parent.parent / "data"
+MODELS_DIR = Path(__file__).parent.parent / "models"
 TERRAIN_TO_CLASS = {0:0, 10:0, 11:0, 1:1, 2:2, 3:3, 4:4, 5:5}
 NUM_CLASSES = 6
 CLASSES = ["Empty", "Settlement", "Port", "Ruin", "Forest", "Mountain"]

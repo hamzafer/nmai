@@ -598,7 +598,7 @@ if __name__ == "__main__":
     from pathlib import Path
 
     # Load a saved initial state for testing
-    data_dir = Path(__file__).parent / "data"
+    data_dir = Path(__file__).parent.parent / "data"
     test_file = None
 
     for round_dir in sorted(data_dir.glob("round_*"), reverse=True):

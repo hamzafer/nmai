@@ -2,7 +2,7 @@
 import os, time, subprocess, sys, requests
 from pathlib import Path
 
-with open(Path(__file__).parent / '.env') as f:
+with open(Path(__file__).parent.parent / '.env') as f:
     for line in f:
         if 'ASTAR_TOKEN' in line:
             token = line.split('=', 1)[1].strip()
@@ -24,9 +24,9 @@ while True:
             if budget['queries_used'] < budget['queries_max'] and rn not in played:
                 print(f'ROUND {rn} UNPLAYED! Playing...', flush=True)
                 result = subprocess.run(
-                    [sys.executable, str(Path(__file__).parent / 'astar.py')],
+                    [sys.executable, '-m', 'astar'],
                     capture_output=True, text=True, timeout=600,
-                    cwd=str(Path(__file__).parent)
+                    cwd=str(Path(__file__).parent.parent)
                 )
                 print(result.stdout[-500:], flush=True)
                 if result.returncode != 0:

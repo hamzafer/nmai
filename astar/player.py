@@ -40,8 +40,8 @@ TERRAIN_TO_CLASS = {
 
 DYNAMIC_RADIUS = 7  # cells around settlements considered dynamic
 
-DATA_DIR = Path(__file__).parent / "data"
-MODELS_DIR = Path(__file__).parent / "models"
+DATA_DIR = Path(__file__).parent.parent / "data"
+MODELS_DIR = Path(__file__).parent.parent / "models"
 
 # Prediction parameters (tuned via LOO-CV on 17 rounds)
 CONCENTRATION = 15.0  # Dirichlet concentration for Bayesian update
@@ -642,7 +642,7 @@ def play_round(session: requests.Session, round_id: str, detail: dict, round_num
 
 def load_env():
     """Load .env file from script directory."""
-    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
     if os.path.exists(env_path):
         with open(env_path) as f:
             for line in f:
