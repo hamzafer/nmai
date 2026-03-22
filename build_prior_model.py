@@ -76,7 +76,7 @@ def build_model():
     n_samples = 0
     rounds_used = []
     
-    for round_num in range(1, 18):
+    for round_num in range(1, 100):
         round_dir = DATA_DIR / f"round_{round_num}"
         if not round_dir.exists():
             continue
