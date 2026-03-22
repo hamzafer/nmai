@@ -1568,16 +1568,30 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                 # Auto-fix: if :invoice fails with "bankkontonummer", set up bank account and retry
                 if (resp.status_code == 422 and method == "PUT" and ":invoice" in path
                         and "bankkontonummer" in resp.text):
-                    print(f"    AUTO-FIX: bank account required, trying POST /bank...")
-                    try:
-                        bank_resp = requests.post(
-                            f"{base_url}/bank",
-                            auth=auth,
-                            json={"name": "Bedriftskonto", "bankAccountNumber": "12345678903"},
-                            timeout=15)
-                        print(f"    POST /bank → {bank_resp.status_code}")
-                        if bank_resp.status_code in (200, 201):
-                            # Retry the invoice call
+                    print(f"    AUTO-FIX: bank account required, trying multiple approaches...")
+                    bank_ok = False
+                    # Try multiple bank account setup endpoints
+                    for bank_attempt in [
+                        ("POST", "/bank", {"name": "Bedriftskonto", "bankAccountNumber": "12345678903"}),
+                        ("POST", "/bank", {"name": "Driftskonto", "bankAccountNumber": "86011117947", "iban": "NO8601111794"}),
+                        ("PUT", "/company/1", {"bankAccountNumber": "12345678903"}),
+                        ("PUT", "/company/0", {"bankAccountNumber": "12345678903"}),
+                    ]:
+                        try:
+                            bm, bp, bb = bank_attempt
+                            if bm == "POST":
+                                br = requests.post(f"{base_url}{bp}", auth=auth, json=bb, timeout=10)
+                            else:
+                                br = requests.put(f"{base_url}{bp}", auth=auth, json=bb, timeout=10)
+                            print(f"    {bm} {bp} → {br.status_code}")
+                            if br.status_code in (200, 201):
+                                bank_ok = True
+                                break
+                        except Exception:
+                            continue
+                    if bank_ok:
+                        # Retry the invoice call
+                        try:
                             retry_resp = requests.put(url, auth=auth, json=body if body else {}, timeout=30)
                             print(f"    Retry PUT :invoice → {retry_resp.status_code}")
                             if retry_resp.status_code in (200, 201):
@@ -1587,8 +1601,8 @@ def execute_api_calls(plan: list, base_url: str, token: str) -> list:
                                 results.append({"status": retry_resp.status_code, "id": rid, "data": val})
                                 print(f"    AUTO-FIX: invoice created after bank setup, id={rid}")
                                 continue
-                    except Exception as e:
-                        print(f"    Bank setup failed: {e}")
+                        except Exception as e:
+                            print(f"    Invoice retry failed: {e}")
 
                 # Auto-fix: projectActivity 404 — return activity ID so downstream calls work
                 if resp.status_code == 404 and method == "POST" and "/projectActivity" in path:
